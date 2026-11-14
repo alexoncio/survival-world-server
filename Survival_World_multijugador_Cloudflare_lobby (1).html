@@ -1,0 +1,1496 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Survival World</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;overflow-x:hidden;overflow-y:auto}
+body{background:#292929;color:white;font-family:Arial;text-align:center}
+#top{width:860px;max-width:96%;margin:7px auto 12px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+#status{border:5px solid #555;background:#303030;padding:10px 18px;font-size:29px;min-width:420px;text-align:left;line-height:1.2}
+#resources{background:#414141;padding:12px 16px;font-size:21px;white-space:nowrap}#ironIcon{width:34px;height:25px;object-fit:contain;vertical-align:middle;image-rendering:pixelated}
+#game{display:block;margin:auto;width:810px;height:500px;max-width:96vw;border:6px solid #555;background:#75b849;image-rendering:pixelated;cursor:crosshair;touch-action:none}
+#message{min-height:22px;color:#ffe68a}
+#bottom{width:810px;max-width:96%;margin:10px auto;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.panel{background:#393939;padding:8px;border:2px solid #555}
+#hotbar{display:flex;gap:4px}
+.slot{width:62px;height:57px;background:#555;border:3px solid #888;font-size:24px;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;user-select:none}
+.slot:hover{background:#777;border-color:#ddd}
+.slot.selected{border-color:#ffe45c;background:#777}
+.slot small{font-size:10px}
+button{background:#555;color:white;border:2px solid #888;padding:8px;margin:3px;cursor:pointer;font-size:14px}
+button:hover{background:#777}
+#helpButton{background:#315d9a;border-color:#719bd2}
+#inventory,#crafting{display:none;width:810px;max-width:96%;margin:10px auto;background:#383838;border:3px solid #666;padding:12px;text-align:left;max-height:180px;overflow:auto}
+#helpOverlay{display:none;position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.82);align-items:center;justify-content:center;padding:15px}
+#helpBox{position:relative;background:#333;border:4px solid #777;border-radius:8px;width:700px;max-width:95%;max-height:85vh;overflow-y:auto;text-align:left;padding:20px}
+#helpBox h1{text-align:center;color:#a5df70}
+#helpBox h2{color:#f3d66b}
+#helpBox li{margin:9px 0;line-height:1.4}
+#closeHelp{position:absolute;right:10px;top:8px;font-size:22px;background:#9b3434}
+#deathOverlay{display:none;position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.94);align-items:center;justify-content:center;flex-direction:column;color:white}
+#deathOverlay .skull{font-size:clamp(100px,24vw,220px);line-height:1}
+#deathOverlay h1{font-size:clamp(48px,10vw,100px);color:#e33;margin:18px 0;text-shadow:5px 5px #500}
+#deathOverlay p{font-size:20px}
+</style>
+</head>
+<body>
+
+<style>
+#mpOverlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:16px}
+#mpCard{background:#303b2b;border:4px solid #9b9b9b;border-radius:12px;padding:24px;width: min(480px,96vw);text-align:center;box-shadow:0 8px 30px #000}
+#mpCard h1{color:#a5df70;margin-top:0}
+#mpCard input{padding:11px;font-size:18px;width:190px;text-transform:uppercase;text-align:center}
+#mpCard button{font-size:16px;padding:10px 14px;margin:6px}
+#mpStatus{min-height:26px;color:#ffe68a;margin:12px 0}
+#mpRoomCode{font-size:26px;letter-spacing:3px;color:#fff}
+#mpReady{background:#287a38;border-color:#7bd48b}
+#mpBar{display:none;margin:5px auto;color:#fff;background:#333;padding:7px;max-width:810px}
+game-shell{display:none}
+</style>
+
+<div id="mpOverlay">
+ <div id="mpCard">
+  <h1>🌍 SURVIVAL WORLD</h1>
+  <p>Multijugador online</p>
+  <button onclick="mpCreate()">➕ Crear sala</button>
+  <div style="margin:12px">— o —</div>
+  <input id="mpCodeInput" maxlength="12" placeholder="CÓDIGO">
+  <button onclick="mpJoin()">Entrar</button>
+  <div id="mpRoom" style="display:none">
+   <p>Código de la sala:</p><div id="mpRoomCode"></div>
+   <p id="mpPlayerCount">Jugadores conectados: 1/2</p>
+   <p id="mpRoomHint">Comparte el código con el otro jugador.</p>
+   <div id="mpHostControls" style="display:none">
+    <button id="mpStartButton" onclick="mpHostStart()" disabled>▶ Empezar partida</button>
+    <p>Cuando el otro jugador se haya unido, tú decides cuándo empezar.</p>
+   </div>
+   <div id="mpGuestControls" style="display:none">
+    <button id="mpReady" onclick="mpReady()">¡Estoy listo!</button>
+    <p>El creador de la sala decidirá cuándo comienza la partida.</p>
+   </div>
+  </div>
+  <div id="mpStatus">Conectando con el servidor de salas…</div>
+  <button type="button" onclick="mpDiagnoseServer()">Comprobar servidor</button>
+  <button onclick="mpSolo()" style="background:#555">Jugar solo</button>
+ </div>
+</div>
+<div id="mpBar">Multijugador: <span id="mpConnection">sin conectar</span></div>
+
+
+<div id="top">
+ <div id="status">
+  <div id="hearts"></div>
+  <div id="hunger"></div>
+ </div>
+ <div id="resources">
+  🪵 Madera: <span id="wood">0</span>
+  &nbsp; 🪨 Piedra: <span id="stone">0</span> &nbsp; <img id="ironIcon" alt="Lingote de hierro" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAX0AAAEUCAYAAADHgubDAABCe0lEQVR4nO2da4/cRnb3/8VbX2ZGGlkXO9pFdteGH+wi+8YvggCbAEkeIEg+Qj5nno8QIAg2VyBAFhvHsOyN4pUsydJM33it50X34VRzyG4Wu1ldrD4/YDSamSaLZFX9eepU1Tnidr7AqRECGI9G8D2v9THL5RJJkkBKufV7z/Mgpbz3e+Ly8hJBELQuJ0kSrFYrFEWx9Xvf9yGlvPd7YjKZIIoiCCFalZPnORaLBfI81yoniiKMx2N4Gs9uNpshy7Kt3wkhIIRoLMf3fUynU/i+37ocrqM1XEfDqqOiKLBK0sbPDp32rXAgFEVRdo4+yfMcQgitjmxzOdTB+y4H4DrqCteR/eUMASefADfYbrCo2F8O15H95diOs3fPDbYbLCr2l8N1ZH85NuP0nXOD7Qb5cVlU7C2H68j+cmzF+bvmBtsNmsTyfb/3Z8d11A2uI/vLsZGzuGMpJTfYDhRFUboR+n52XEfd4DqyvxzbEHYs2RTwBNBnUxJClJXcd6M1BS3f6/t+TJbDdWR/Oc7XkRDIiwINq1UHT/uFtj0iBFDkObIsa1wXXEV3/S6wtlRWqxXiOG5dTpc11gCwWq2QJEnrtb5d1lgDQJqmiOP43pruXeiusQbWVlEcx0jTlOuI68jpOvI8D54frIXJQewY18j1MLXvISpZKaaGwqbKAcxN6HEddSsH4DrqwinqyJURTBN2iD5Q7pYz8dBNNdg8z41NsgH9iwrXUXe4jg4rx2QdsegbxGSDNVUODRdZVPThOuoG11F3SjeSw7pvlegD5hoslWPCgjBlEdFklCuiwnXUHa6j7hRFATg6iQtYKPqA2QZrcohqqhzXRIXrqBtcR0wdVoo+YN5ScanBuigqXEfd4Dpiqlgr+gA32EPLAdzxH3MddYfrSBPHXyZWiz6wHVyKG6weJv3HXEfd4DrqTm915OqurA3Wiz6w7hhsqXQvx1Q4AK6j7uVwHXWDXT36DEL0AR6iHloO0P/6Y66jw8oBuI66wMKvx2BEH+AGewimoiRyHXWH66g7LPztGZToA3cNqW3MD9vLAe6svL4hUdmV+/QYcB11h+uoO6bqaOhYE2UzDHx4Gm9pCiql2zmiKNLyneZ5jjzPtZMkB0GgtWGlKApkWaZdju/7CIJAy8JZrVZaZQCbOgpDrWfHdbSG62hYdSSlRJrlKByd0LUiyiYg4fs+fM3GSlELdRrseDzWil5YFEVpQehYLGEYanV0ipCoW47nefB9X3sSkO6pbTm+75dfbeE6WsN1NKw6KooCaV44u4pncO4dFWqkfftBacehS1vNqTOYKIfrqBtcR91hH38zgxZ94M5naGICzFTQJ9Oi0jdcR93hOuoOC389gxd9wmQOT5caLFl4JuA66gbXkf3lDAlnRB/gBtsVFhX7y+E6sr+coWDJRO7xMJEnFLhL7ND3crQ8zxEEAfI8730Jn+d5vS8VBM6rjshtoruapOmYXXUkxP48uW3F/Jzq6NxwytInTFlFpiyILMuMZQ4yYeEB51FHJM4k4OrSyK5f6lp0nePoGnTE9Rzq6BxxztInqMH2/VY3ZalQg+27HNpBCfQ/ieh6HdELNAgCBEGgtWTT9/2d10p/Vz/TZcnmPlyvo3PEWdEH3Guwpsph4T9OOfSVpqm2GGdZVq6fb6Lq6pFSIsuy2vtTl396nqf1AnK5js5R+J0WfYIbrD4mhR9wp45IeIMgQJIk+J//+R/53XffAVjvYm17n3Ect5oHUM8nhLi3U5ZcGVmWIc9zPH36FJ999pm4vr7Wfuau1JHJcmzEedFXh9kmG6yJckxMuPYd7hdwq47o+rMsQ5Ik+O///m/80z/9E+bzOcIw3PrMLrpcX918DP2ORP/nP/85Hjx4gKurKy3Rc6mOquWw6J+IPM8hO8TLaAutbNANyiSl1N5CT9vTsyzTihmiO5lFn9eNaeJ5ntYWeuroXVY+nFsdkYjStSRJgvl8jvl8biSQWhVVqKWUmM1miONYZlkm6Dp028LQ66hKtR9JKZ0NwQBYIvoCAkkca4nKZDLBeDzWqtyiKLBarbBarVqXE0URJpOJtsW7Wq2wWCxal+P7PqbTqfYkXBzHWC6XWqJ/eXmp1dGBdceL47jRZ1zHOdaRmgIxy7Itd4upJbEqJPokZkVRYLlcYjabwfd9jMdjjMdjrWc39DqqQ+1HnufB8wNn0yZas2STrKM+l1NRMCUTyxLJsum7HCFEp2BeXcrhOtLD1qWBh16XS3VEmOpHNmCFpQ/c+TmpQbkwSUnrj01MStGqjD79oGSlch21gyzr6hr7U1n6VPaxynehjqrlmNqnckqseq2p/lBT29pd2QJuMs8q1xFDuFZH5VyFw03BKtEHzImKarW61GBdEn4X68g1XKyjoigAd+dx7RN9wKyouJbD00Xhd62OXIPraFhYKfrAnaiYcCGYbLCmEkiYFH6uI4braDhYK/rA3QaVvsXLZIM1FfTJpPADXEcM19FQsFr0AXdFxTVXD8B1NARcGpW5Wkd9Y73oA26Kios+foDraAi4JPyu1lGfDEL0ARaVQ8sxsayO68h+aA6GJ+DPF2s2Z7Wh3CLtmKiY8vFT5qA+6VJH1Q03bTYQqUsF2x7TdI59x5H/uGs5tkEvZ2pzXZ9dm8+41o9cYFCiD5iN/Nh3lD+iKArtWDhdUMWrT3TrSN2tCrSLJU9QJ++yhZ7KaSNg9NLc93lqM2EYWvmCoGuiMAoUBlr3OilXwL5n7mI/GjpWPCEJIIwirU1weZ4jjmPtsiiLUetrkxJJkmiXI4TAaDTSOiZJkk6WShRF2uW0FVWVMAzL8MBt6FpHk8lE6/PVMAdtiaJI+9ntK0cNbEbPWQ2/0CVf7iFUwzAIsY65PxqNypGfbpRWANpte1D9SAjkReFsoE0rRB+QiKIRfA1LbblcIk1TbUtCN8JkkiSlcOnE/phMJmXSjDbkeY7lcrkVr6UNURRpR0mczWalxdpn9MK2dVS9hiHXEQm87/tYrVZI07SMrU9RNk1CPnx1P0UYhhiPx/B9H4vFohRj3X6kYwDYVEd1qP2oKAqskhRSmns5m8QS0e8GDVFdCTSm+kBNBDQzlYGrro5UMbq5ucG7d+8kCaPuyyVN01K4VKt2H2Tt6sRqp3DCTbHxqewgCLBcLstsVQ8ePGg8pk9US78oCkwmE7x79w6/+93vAACr1UpSvPp9z049z/X1tXj69CkuLi7Kl9m+5+hiPxoigxZ9YHvisG/hN9GQTDZYWvVA5fZFtY7UEA5SSrx48UL+wz/8A96+fdspsXdXIe2yoqlNG6M6DIIA19fX+PTTT+H7fm2+CJMTj0EQII5j/Mu//Av+8R//UdJLiF7M+/A8r3QFffzxx/JXv/oVPvvsMzEajbZe7rtwsR8NjcGLPmDW4netwZoKj6vWUdXds1wu8ebNG7x9+7YUH5N+72NCQpqmKS4uLvDo0SN89NFHiKKodi7ApOgLIfDmzRu8evUK79+/B7AdG3/fsepIhUYyXdqMi/1oSDgh+sD9ePx9luNagzUl/HTuXRZ21f88NNTrzvMcaZoiTdNypUzTZ02gzpPQc1avw+T1uNiPhoIzog+w8B/CKYSfUNf1qxblEKFrJzeVep/VOhQQRuO2k09e3aCl9pU21r660e/QpdMu9qMh4JToAyz8h2DS1QNs+4jpd3SPQ+2YJPq0FHJL5E84elFfpkVRbM3ntOkn6uhMXet/KC72I9sZTBgGHdRVAn2XY2LHoalygDvfu4lyyOIcqitniHR93n2P/lzrRzbjpOgDd8LvSnApF4V/yBY9c1xc7Ee24qzoA/X+477KMSGUpoX/nDuGi1D7rK7EsaWOXexHNuK06ANmhd+Eu4L8xaaCtJnoGGztM4SL/cg2nBd9wJyomLJUALOJWM7VImJOg4v9yCYsWb0jMJvNIDVWA0wmk3Jre1vyPMdisdAKzBVFES4vL7UmhYuiwHK5xGKxaH1Ml9g2UkrEcYzb21utF5tubBtgHepgPp9rrdhoqiNarUNhIKbTqZHIqczx5lGoL3348AGr1Wpvsp4h9SPP8+D5AeDoi8CKniYE4Bt421L43b7L8TyvUzgBXYQQtevB+8BUOcxw4H40TKwQfUizK0YAcz5+E8tGqRwTk1+8xFKf0rqWuPtyABNu05P0I8dHnZa4d9aY3BVqYufnKTaKqeX2QR/lUIc7xkqSNtdkOtwAfVddK7t24/Zxfeo5687fpszqOUyFbzDdj4IgMLpT2jRWiT5gXvhNhWU+9AVDDbJ6DjUJBk267vPbdkmgQuenrzbl5HkOCttbvReyqtTduTSc73v9fp8ipe5aJZcB3Zdaf0331/e1VYVavV5daMexek9N82XUFtQRqWp8tYnOeYx+1IZCSngSzgq/daIPmI8D07fwU1nHarBVYahukd8nyF1dNLrl7CtLPRe9TOjnrvXR9vn2Ja5Ux5QbgDJnVcMyiAZFkaK/dfM0gU5f6lr9NqijleqorO1IoW60oHO/poTfZawUfeAuycexYnw0YVr42whlHTTZVKUpN+wui7nr5Fhd5ifKr1r37Jomx9RYO3TtZAlWrce20DUURQFZ7DlWNIvuoQghILEOrQygjLJJL4C6OaW+3SNCCHjCQy7u4hzRC1Y3lzF9VS16Gtk09SN11HMoh/SjlgUc/5wWYa3oA3cZ7k24YAAzwq8zilGtqSRJMJ/PywxR1OjTNEUcx7XX3dQxFouF9pJNWj5XN3xvejmPx2OEYVgr+lLKMsb8crnExcUFHj58uPV3XchNcKqJZgFRin6WZYiiCNfX17i4uCjzC+8T/T5EjKzpIAiwXCwxHo+32pHOeej6oihCHMeYz+eI47h0GdLzrzMORqPRVv1QX5hMJmWqwrbzOqa8AS5itegD5yv8W5N+QuD169f49a9/Lb/99lt4nlda2OTP3+XKqeuAusJIZemUs8uyUz8vpcSzZ8/w7Nmz2tHEvuui+ppOp3j48GGZWN20GKj1RdbogwcPMJlMdqamrLrNjn3dqhsliiJISMxms/Il2fUF+8033+Cbb76RQoi9K7topKouoEiSBBcXF/jlL3+Jzz//XIzH49qXYhMs/N2wXvSB7V2hJnz8pnLHthF+YN0Bbm9v5Zdffokvv/yynBAbaohYuvc0TREEAX70ox/hj/7oj/Dw4UPte5JSIkszCE/g+voaz58/x/X1tSAhMkndZCP58qsCq95j35Y+cDfqC8NQSikxn8+3JlB1y10sFvjd736HV69eacexUUM6P3jwAM+ePcPPfvaze4ZOG1j49RmE6ANmffxq3O0+URtsG47ltuh6ni7zEHWQa0l1O6hpFHXKEWK99JH81Kpv/1j30RZ1NYr6O7oWnZ3gx0QdeQB3zwpA44uo6Tw0elPvq63g9zlBzTu62zMY0Qe2XT19QhaHbdEsSVDUZ2DSujnmS4fuQ8q1/ztJEiRJ0kn0adI0SZJyvqIo1rO5ddfc1wRgVfQrfvuTLQBUr4kEP01TQG4E22u3gkZd9ZOlWXluQG9uQG27XVeS1V3bucXQ6cqgRB8wJ/wmrYe2k1ckViSMpt0Xx4SuXxXIrh1WdadUlwE2iG1vb8pq2fTykT2+nXc9N2pbnucJte0IISC8O5eTLCTknsey9TITd+cHsFWX+1A/e8wXcNt+dO5YIfoSgKcp5HWbftpAk6Ctr02ZLNVFN+iTuqRPFUVKK6j+Te00Q6Xq11Yn+XShY2mTl5RS0O9rPmtMGXzf772sjXDWPrTNcxGVn+8LZItlrGod0Tmqk9dtqB5bFAWyLEOWZVttnjikH+kcp8bmkg6/PKwQfUCuVzhoiP5yucRqtdrrv62iG2GS3A66wk/L0NrqS57nWK1W5fLLqugvl8utnbS9rVFmBkdV2FVopGETVaOFliNX2zxweD9qSxRFmEwm5VzeKkkHPZLexaBnP/aFcx1aOdTIziXaH8P0Afej3Qxa9AE3hd/UJDLDuAr3o2YGL/qAWeEH9FYqdIEbLMMcDvejepwQfcC8C8aVchjGZVj47+OUorgm/DSyYN8k4zLHWqvfBAv/Nk6JPnAnlCY2VQFmhJ8zVjGuY0L4eQPXGudEHzCXetHUKgFanslLNBkXUYMd9t2PWPitWad/PEiIqXKrYqm7rl9NOtH0dzWmSfU4nV2Kajlq8K7quV3gmJ2uLuwB0w/VDVr7nv0+Q6W6y5w2bqn9uG0/arurXY2tdY6GlFOiX7WI64Sf/P5t2Sf6ajn0f/quU1ad6FNjVzuGOkzt6qc8tTiq8VoolSAAQCovO4hWMWGEEGuXnhz27mTTeMLrNBrWHXE27Iguv6t/VwVe7cM6ot/m2s5d+J0SfSGas0tR5YZhqB2GYRPAa+9nVeEPgqA2gUgTeZ5vxblXRb8aMEvdsUvBxnTu59SjBrqXNE0hhMBisUCSJMjGd1vx6XN7QwN4YivNovqdaSYvcshsk4GqZSgiNdRFmqbIsqxsf01zW3V1oYZxqAuZQO5S6kc6+R/aRjI1GU3XNpwS/WpoXmooaiJvXUtfTTze5rNq+j+dstQ8quq9qGkP6aWmRifsYuXbYOnTKMXzPERRVHZ03WB66r3QOVj02yG8zWiqZerIanwjdaXcrmQ51b+p/bLaFsmQIeNNpx/p1v25+vitEf3lcqmVmzIIAkyn0y0BnM1m+Prrr+XLly9RFMVWejpA358PdEvB1zUufDVRDI0yfN/Hu3fvMJ1O8dlnnyFN28cFqc4JRFGEy8tLXF5eQoh1WOJTiSQJ/6NHj/Ds2bNyRNX1euhZMXd4nlcGnpNynaLy0aNHuLi46HQ+aqeLxQJ5nmM0Gm0lOaqjWp+qe288HmM2m+E///M/ZRAE9yz1XdnaCEoq9PHHH+MnP/mJePDgQVlOWz9/lmVYLBblcVI4ucYFgCWiTxWTtahgIgzD0m1DHX25XOJf//Vf8W//9m9YLpelG2dowzd1ApdGGc+ePcNnn32GH//4x1sjlr0+703e1rxYd6bpdIpnz57ho48+EsDpA3JRsLAuw2wppVQDjfUZvtgVRqORePz4sRRrOo0UPc/DfD6Xvu/j8vJyp+jvqpIgCBDHMb777jv8+7//eyne6nl2HU/XT+HWf/nLX+LJkye4vr4uRxc697iV5cwXgKPWvxWiDwnkR5hYITGsTnwOTQtU0c+yrLyn0WgEyiNKoaXbTHQC25b+ZDIBWUNFUZy0ZVMdUcfVnGQXyv8hpRTKZP7WC+HcUeeHwjDs/GhI9GnOKgzDcjJeR/SrrkrVtalzLTSCaTMi2AW1m3PYAW+H6AOAlCg2D72rUFNDqvoeh2zpq88hTVMkSaJl6a9PgtLSp4nT29tbAKe39IF1fPsuItT0nA45p8sURSGFEOIQcVQnculL3UBYpVH0IZD7eTmRW50naHONqugfwy9fCr/vo+U0xyCxR/Rx+FKqqi+9blOT+v82Ez+HNCR1QlmnHHXiVl2mqd5Llwkr9ec8zyVlUzo1aufVPa7u/8x9yI12zHOq/aup7qSU9XnKNleitmt6cXQx0nSXku46j+tYJfrAcYSfvu+bUG27pvdQdMshwW9zD21QRwTKCEhsrKOTqmVVuM+h0zH3Ufef6HLsNiOLAkJ4zlr71ok+wJsn+kZd7lkd+ZwSrmdH2dGseLRmHitFH7ifOJsF4Xi0GZYzzDFoEvLq6FP9YvrFWtEHtn3i6s+MHrs6U2WZ46m9PQzD9IzVog+w8DMMwxwT60UfYOHvE9qxyTDMeTCYnQjq5gl2QTAMw3RjMKIP3O245QkfhmHqYF3YzyDcO1XUbfsmOEVDalrZUMbRdzggFDM8dA2x6moddQTf9jzVvqFuZmTDsBkrRF9C4uLiQmtjxmq1KuOw03E3NzdSjRo5dN8/N1rmHDh0rT4dQ3GlkiRBkiTl39qcM4qiUoMKKREn7SPZDg0rRB8dAibleV5WbDVkAcMw5wd5AChwm066UjpObmKADd1g3IUdoi/0k2dQgCbKOKVG61utVlitVvA9f1OJ2iF7t1wpp2gAZKFk6TrKJsXQp68sz8qUgm3OVRN5VEopeShxZlAE0q5tetOWBAksBUyjqK+a50GWZYjjGHEcI8syrUir1V3l6nyflFIrqQ5FCvU8D6IokIkcruq+HaIPAAf4BNWY+pTGLUsz5CJHIYvWmYGAtauJGkxToDYTlPcmC6RZWt4XRTQsG/ge3aZnqubeZbfR+UKC33VEvGk7siiKdT/biH6XNhUEAZIk2YrYqTNPpwp8NVCbKvxtDLf7u4IF6iPFDR8rRD9erfDdy5dI07T1U47juAzrSrG9P3z4gD/4gz/AeDy+F/JVp1GSqNL8wKkmcoUQZc7Yx48f4+OPP8bDhw/L6wOa09Sp5wHuRH88HmM8Hpehh10exjLbFEUhgyAQlJ6yCzQC3uR1kFdXV+XvdQmCAFmW4fLyEldXV0jTVCt/NZVLfXQ6neLVq1dyNBohjuOy7zcJv/pzEASIokh4nocwivDw+hHCMNS+pyEgbueLU18DXr/6Pf7f3/2dfPXqVetjVDHP8xxxHOOTTz7Bn/zJn+Czzz4T1KDoczquozzPMZvN5M3NTTmKMC386r3RNYRhiCiKAEDrZUZWEHWOTVpB0TZuOeMGeZ7LyWQirq+v6cWvfQ51dK0aRl3O4/s+sizD27dv8ebNG6nmq20bT5/27hRFge+++w7ffvstZrNZqz5fDTZIn3/67Bn+8i//r3j85In2fQ0BKyz9NE3x+vVrvHz5Uus4ajhpmmI+nyMMQ4xGIzx58gTT6XRt3cqNFaLRvjeiL2azmdZk0LGoBqNSffmHZhaj7xxs7byguvY8rzQejtGuJ5NJ52NVoyYIAqG6aXVcMlEUIU1T/PDDD/L9+/f4/vvvW+VLbjq/8DykWdbtpgaAFaIvoL/OF9hey05v6WMIWVEUSJIEy+USWZZJ3/eNByKrS8ByrGtgsWdsQF1YkCRJmdin6p9vQh110PwCcLfmv2t/8YTOLODwsEL0Ie5SG+odJrYq+JjCvLFCaN2/NJ07U514VV1Uh14H+fIZ5tSoI051U1VRFK1WF1E79n1fqEsu70/KNpe/67yuYoXoU3iFLomRqcGoFb71Ga/bCGLzJYQQkjJNaZ3kQHaJOy27M3g5jIOcWtzqRJn6XZvj1fzO6lyAqiNdRD8vCkfX7ayxQvT7wGVN1OkYDGMzxx6dc7fYDwdwYRiGOSPsEH0h1l8MwzCnRko4ux0Xlog+D8kYhrEFl13DgCWi7/JblWEYxibsEH2GYRjGCCz6DMMwCq67m1n0GYY5KbaJrOs+fWfX6RNdQhiou/k2mz7sapUMo8khMfR3nLP8f9suUj1G7Z9qxEymP5wXfUJH/NXPcAM8X+riHw0V2l3elCNCt53vClPcdK6mZ6gGAiyKQrbd/V73glBDO/ALpJ6zEX0dlNAOFO5VQitO5zbc8IYJWccVI2CQlWmjpb+LNuejl0M5Msf9ROn7yhj6y7wLLPo1qEGglJg+nVtHEATGY/cw3SGhpzZQsY4HqRLqPdl4C2EYgqLZ6r5AwjBch4yOQoRhSOdCEASdYu/sO27oOCP6lK8zSRIkSVLmz1UjcQLtLA2K9jeZTIRuEDjgLvqnEgP/nsXI2ImamMOlFzWJPWWm6ponghKdFEWBOI7v3Ci4y1mhY81nWUY5raWa47bttWzOIfI8l7e3t3j//j1ub29L4SfqrqmpnKurq87pJIeAM6JPiRRevHiBMAxlGIZl/s59uW7VSaRNQgd88skn4vHjx53SyqlxvuM4xvv37zu9PBjzZFkmoygSDx8+xGQyceZFTSOWNE0xm83w4cOHe5OobRCbxEW3t7f46quv5P/+7/+WaQ51clqofe3i4gKXl5fly6QtiqUvi6LAN998gxcvXuDt27dbor/reuruO89zxEl8kEvXZgYv+uoQL89zfP/99wjDEEEQIE3Trc9U/0+oSVjSNMVkPMHV1ZV8/vy5GI/Hna+tKArIQpajDsZ+SHTCMMRkMjk4f4EtULufz+e4ubnBYrHY8lS1XeAQBIEIwxBv376V//Vf/4X/+I//QFEUCMOwPEdb4S6KAqPRCM+fP8cf/uEfllnwAGyNzvfdUxiGkFLi3bt3eP36dakBXUX/8vISWcqZs6yFKpR8757nwff97WTIEpBQvlcQEBCeKIepnr/d4LquchBCIC/yclKYsgIxduNiiF66H0rEo/68+fveG1bj16vuIvqu40IFgCzLyv4KYMv1pHNfvu+XRpV6f/tGHjbObZjACtHv+uhrVlZsZZhqa6Wp7h0pJXzfd8bCY5gq1Gc2fUW0nW+q9rUwDDEejztb+r7vl/l6VaHWmcgl0afz0QQu5cjtskIniiIId6Zz7mGF6B8SyvSYb+tzffMzTBeqa+LV37c9XufzZmHRt5pjDsVtXdLGMLahLmlWczq3hfoanUP9fdvj685XfRHp9uf1593VACdE/xiw2DOMHurch+d5Wrtg6XM6btj7J7k7F83dMfth0a/Aws8w+uiOtl2cLB8KPFvJMAxzRrDoMwzDnBEs+gzDMGcEiz7DMAfDCyGGA0/kHolqg+dJKsYlVFHfFb6Y2739sKXPMMzBsJU/HFj0mYNgy45hhoUz7p3qcFPXx9g2205bZCHLYGsUm10nrkh5Hqu3qtenrBsyFHepKeBeUz3UuTmklJCFRCHXu1Ups5M24u6cOsdX2041ds5mJ22rXA/VHa7qOdVEM7oRLa3Fzu52FKwQfSEEcKQGsUmadvD1HPoCkFhH7PR9H0mSII5jSbsPu6aMU69pk/O08/UdiioYLk3i5XleRmglqmLZFiEEhC/gKQPqQ57TMerb8zyEYYjRaCS6hCegzFSj0aiMbknPjD7TdO11Lx8bKYrCZc23Q/RtI89zxHFchn5VowY2NdhdmXnCMCSLX+iIft35bBBXJbqhtnDYju/7MgiCdSa2dF3/qg3RJu8qQTFp8jwvszyZFLw663uTpQpJknQ5nwQgpJSI43jrBalGqmXshkUf252CGvEPP/yAr7/+WgZBsDV8bSv69KKYTqfi8vISDx8+PCixepqmWCwWyLKstjyTSCmlEEJMp1OMRqN7YjZkl4+UUgDr+vtw8wGAnmVK9eL7PrIsw5s3b+Tr16+RZdlW+OG256LPZ1l2LzCZ7jXJTeas5XJZtiNdPM+TnudhsVhgNpthOp0iy7JOok8hmcmdxi8MM7DoVyBL/NWrV3j9+nXrJWnVBkujhE8//VQ+efJEXF5eagWkql7TYrFAHMdlZqFTQvc6Go3w8OHDMvlF1dc7RIQQSOIEP7z/Abe3t9rJb8jlNRqNxHK5lL/97W/xm9/8BnEclwLXhmpboZf+Iblb65Kc6M57Eb7vYzKZYDKZlC+jNqMg9RqKoihj6qv5LE6NEIc6iO2GRb+CEGI9+bYZllOeXfXvTaifI8suz/N7kQS7CGK1w9ogqgdHSbQUP/BRFAXSNJUbt4xse49FUZST91mWIUkSLBYLzOfzrexSbagT/UPTbnqeV+az1Q2DTFBu2yAIEEURyB22j8qc1FakTSrDBtGXsi6/njuw6NcgPIHAu2vUW39rIfoUI5zydG6teig2HVlDs4cw9N21UmRoSClpwlOQpd9W9PM8lzThmec5xuMxLi4uEASBtnuH5gEAIEmSMktV13tqWsXT9nj1/5SlioyaQ9uoLYJ/DrDo70F3tQZBwg9gezWRQKekPIqlL+n8p17Bo9K0OsOW66uyb+llZXWSJF9/l3LI+j9kroOWRh7DvUPXpX7XpbqEU/1ua50za1j0DaAOadXvuscPgSEIPmD3tfVFV1/+vnMxw8ItZyzDOAgLLHNM2NJnjsY5Ws/HZJfrxuZNcOqkLGM/bOkzjMXYLPbMMGHRZxiGOSPYvbPhYEtKAhDHD9zGnA+0dr5pX4gLm9+Y02OFpe/CwNXt7RzMKWDj4TQIz3N6R64Vog8p118MwzAnRpT/uAm7dxinaBsyo8sxbc632S0nq2Ez2k7I8oQt0zcs+owz7Nplui9QXhsxzvN8ryLTskuKM6+KPa/CYWyARZ9hWrAJxdDmc1vfjwn795ljwKLfE31adMq5N2uGzOKatdo0MvA8TwDQCrhGln4URcjzfCv0RtuJ2b6f7zHPzyOY4cGifySa4u4LISBxPzhVF6odbLMLsgzApvxu6zrU446xImQT+EuK9c1BFppp93C37FC9vkOjmNNzblrW2ObZU9q/IAgwGo1QFIXWRdHLIQgC+L4vPM+Tvu93WsrbRxwjCtqmcy3V56a2sWp8/F3UJduhzHQUjprpHxb9I6PGCBdCYDab4fWr15hMJ2XH6BpPP4oihGEo1N/R96YOV5ec4hABoXNRAvHlaql5AqCQBaVbhJQSs9kMt7e3yLJMrhNY6F+fhCwjWdKzqIsquQ/f95GmKW5vb7FcLvVeaALr+ysKBGGAJEnw/fffI8uyMi+DjrCp19w1a5YKZaqaTCYIw1Dr2GqwNnopVvMJ76NO9Kvhy5l+YdHvATWhxJs3b/DhwwcZBMGWta11vizHk6dP8Omnn4rHjx+XmapUdoUKPvamHrFJ3zifz/Hu3TutxB6qVUcx57/99lv529/+Fh8+fChfJrqQ2C+Xy7uQ1pVMTW0ma+kY9RxtEUIAEsiLvHwRU1pCSqiy89jKz2p7OTS2jZQSWZbh4uICn3zyCa6urrSyeFV/VkdpZMi0OV/di9jFRDw2w6LfA57YNGCxybX64YNWHHRVoNM0RZ7nCMKgcxauaqc9hvBTZrH5fC51E2mQSEgpRZZl8v379/j973+P9+/fawuAEKJ8CcZxjPl8jjiOy7+pz1LXnbFx0dzLWrbvekisKUsVWdW7jq++lOvCIB8q/GEYYjweYzKZ4OrqCgDKeQed85LQdxk9VkWfzsNzAuZg0e8Dtf1LYDwaa+3YLf3bAmUquvF4jCiKSnG1BQodoJs9iSzDIAjEaDSS0+kUaZp2svTpGnzfRxAESNO09kWnI/p1czC77k11tdH167wsTEAv6jzPkaZp+XOXeZ6uLkqVPlc6Mc04Ifq2Nhoh7tIiltZ/C1SLjv5PFmdbq8jUi8HzPCGllJtJy9aWPnA3aUrWehRF2qJffVZ5nm/59Lu6tVS3Cv3cBtXtAeCeRXxK1Axeh15T9bmr35uwyVg5Z5wQfVtpayXuOwd9VTtsWwvtGJ2tbihfZ7m1XMtOHxLqvWVZVt6TjjtM9S1nWba1VNI0Tcs/beTQlVx9uA2Z/rFD9IVYfzE76bLsr2+aXCFtj62ep7osdR9dVuicK2r7qU4UM3esjatTX0V/WDFlfmij44kghmGYdlgh+k6/VplOdPHBMwyzHztEn2E26Lp3qtjm/mKGx3qDoLuw6DMMwyhI6XZKJBZ9hmGYM4JFn2EY5oxg0WcYhjkj7Finf2S2QuyqzjnBG0hshSdgmUOQUqKQHMenDU6Kfkm17uXuaJROT9lvkMX+uOf3aHhZbsL9lvH86TNFcRePuO55U8A1CgtQFrOJW0Mx1l3rvKd+qVF8pDLmDsSdYdTi0u71kU0Y6UIW8MRpYkIVsthqKxTkzvf9MqSHbjtahzzp42rtwEnRJ/HwA3/r921jgzhtLQjA8w/36lG8HN/3KbtU+bdNxikAjc9cUh2pMW5ce+Z1IYlPBYWpoBcuxcH3pKc1yqp+7tQhkSVkGZeKYjmp4Uq6GA/3PASO4YToVxut53mNyR3aBitz0dIEjheHRwiBMAwxGo2Q57loCgjXYOkLAHQsoihCEAQnF5A+UEcy2iOsI1IVfXrhUl12ibJJlrROdNU+oHZEOSvUUN9drq0oCpc13w3RJ4qiQJZnWC6X8H2/TGDRNigZdQzg7sWhmxmoL6gxSym3gorpBFzzPA9ZlmGxWCBJkjKZiU5MfjXJyGw2w/v376UaKK3puLpropfru3fvEMdxmV1K94XbJRpmn6hiGkURoiiqNSSannsf90BiP51Oy2QzVJaOlU+CSueI4/jkL2y6nizL8Pz5czx69Kh0E7YVfdVYef78udPZvKwQ/WM0cc/zkOc53r59W8Z3J9Hf1yBVASqKAkEQ4OHDh7i8vDzClR2HNE3x4cMHKYQQ1MB1YuuTZXZ7e4sXL17I169fI0kSBEGw9xxV652e9Xw+x2q12gplrBv1sygKzOdzzOdzrZdQ03We0pqu4vs+Hj58iI8++ghRFNVeW1OM+WND582yDPP5HDc3N9qRTKmPBEGAxWKBly9f4tWrV5BSwvf82uPU/NBaZbWYZKha8r/4xS/wt3/7t/jkk0+QZZlWalKa55BSYjqd4unTJ8569a0QfUh5UPwdNXFFkiRYLBYAUIbqbZvGjUTD931MJpPS2j9GftJDofSEG8GVOpa+lLL0v79580Z+9dVX+Oqrr5DnOcIw1BZ9YN1JVqvVVqrErn5h4C5LlU7qRd1yTeP7Pi4uLvDkyZPSBaFi2tIPggA3Nzf47rvvMJvNtM9B8zhBEOD9+/f49ttv8fXXXyPP89KfXkcX0W/7OWozQgh8/n8+x89//nPx7NmzMjVl2z4SRRHG43E5alglqVUGxDGxQ/SPhJR3kzrUILr6K8nq39WYTaO8wAQ2k6Ft7m1j8YggCBD4QZnCLwzDVpY+0JwndbVaNSYqafMyoXs4xDfcVP4pUOc1VNdJnuflyFP9bB3HFP26xQmqIaSbsEZ1m1Afoy/TYa7LBRubuQXqq2p+47YLBNSVZIWUcHkm1xnRr/qcuzRqNaNTtRGfErqnqjiqq2T2IOk4P/AxGo0wnU5LC62Le4fmGOjv6nf1upvO14Qtz/wQlKWrZXpCIQSKfGM5ivufJfoUS5oLonJ3LXiog+YkyG0SBAFGoxGKoihHjNW20KU+dXIpkGVevRd65uqE9b57oxG9hNuBf50TfcYcLq62cR2X+wkJvzoCpp/3LQ6g/Mqe56GQElnu5uo9wCHRb0IdYlff+LvcIy6uGwfuZ6g61rmYemwbuRxjZFHXb2xsAyT2NHLfJfzqaFpYeC/HxHnRB5rXR7dZp2xjYz4UU/fk4rPTQV0q63keCq84yO1x6LVUv1RXjI5LpWpE7dqXYUMbIPePqzu9dTkL0Vdps076HDimhW7TRCqjx7HbgK2om9LOXfjZKct0hkWeGRI0CX3IXhAXODvRV4e3DHNOqLudz9XSZeE/Q9Fn7jjXRm+acxZZGzl34T87n/7QOaYPloWof9qscBpKPdB9uOATV4Xf1Z23TbDoDxQhhNAJltWGpo5ctyKjusOTaceuXat9Psfq5r46N+fQhVyXc7X4WfTPCFcsTheoe9Z9P/86n37TbuohkqYp0jTFaDQqI5u2EXQpZRl9FtiEbxDuer6tEH2hxPNofUzls+f2tj4EttDNUN0IJ4vK6Gjz+GWxvc5d9hD3pS40hLqjum1bqMYVUsOdnGrvAf0fwFa8rLaiT6ghMzxfAI72DytEH5UG1IVdlbuv0tWG0/UcTfRpQbFod8NEnVRFEViHGS7j7gglNPBG5CVkq5DCXa/LE95Wngj6vdqOdrUpuic1yBrd374VcX30H3q+ajyhrtCL7BxCi9gh+gDyjQXS+fhNsCRqlKrvch/Vjqo26kMCrx0z5IF6TvWamTt0XBV9CT+JBp0/iiJcXFwgDEOkaVp+rrqzVf19H5QCWeSYTCZlf9EVOSFEGZ0VuLOO6W8mUXcVV/Mtd6EUft93Ol+2HaIvBHwlNKr+4XcRAwGUIWxJxPd1cLXzUdxx8g8eslpBiHUyiNKCc7ghnRrdvRd9W/sUvCtexZjP5wiCYGc4kOrxfVyT7/tYrVZIkqRs27plUdTKNE1LV4oa6Mwk1O/TNN0adRyCC3Mb+7BC9B8+eIA/+7M/w83NDYDtLD1NhGFYhlJVEzt89dVXePv27Vbs8jYVSeWR6NMx1FkPCUx1dXWFKIrOokGdChKwKIr2dn5T9VAUBV7+70t8/eLre1mc1LZtUvSTJMF8Pkccx+Xv25ZHnw2CAFEU4YsvvsDf/M3fNIY2UM9LUSx17y1N03uJeqojoyRJ4HkePv30U1xdXQHAlttJF1kUEMJz1kizQvQvr67wx3/8x0LtCPviZEwmE4RhWIq053l4+fIlvv/+e/n1119jtVqVVsm+YV/V0lezSXWN1UFW0IMHD3B1dVU2VlnIrUk85nh4nocoisp20SRofe5RoJdPGIZYLBZ48eIFvvzySyRJstWumlw6fV1X07yVjmtJHa386Ec/wl//9V/jV7/6lZhOp0jTdOfLVs1MpcNyuUSSJFvXWY2RrwZNpGd8Dr75rlgh+gKidnhIVkVdJ1X97dUVBCTepdC27Ej3Vlsc4JM/ti+fGQYUzZGs2qIokKYp4jje8qGfQvTV+SDqNzqir27OStN06/Pqfde1exqN64px00i7yW17lFGS4/NlVoi+hESW5yhqJnLLFQ6VhkT5b+ui56kp1FS/5b6VAPR3asD0pX0/ysoNXkp6XlAbJPdiEATlRK7q3jAt+nTuqh+/TVJ7dYGDOu+linGe5+Vy0LpsVeoCCx3UubUqda6eo1j4jhtqVoi+gIAnBNBQYapVogqzukqHPlddflZtFL1ZB5XzsYV/GqrDftP1UFc2CaXq16+6Mg9pgzo++SptRFLtX6pRpY7OqwYOvSDoGVSXeLaFjmuqx7oRDLMbK0Qf2N/4qsKvunLURmkDh7qGGEaHU7WvqoFVtbRV4e86cqZjdt1jncuMaWYwsx1VsWcYxm52TaYfE967ooc1ln4bpJSlz7BNBets1jkm1NDVL/o9BHjlDnPPSh4SOqNXUwHN1BU8zG4GY+mr0ITRroZ3KsFvomyM3CYZDDOZT1dXJfXXvkMYk1HoQujnPrHC0peQuLi8hK/h71sul1gsFltLx25ubqQ6088VzzD94HkeptMprq+vMZ1OyxF4k88+SRLE8Xp3sk6/nEwmePDgQeuXY57nWK1WWCwWWuVEUYTLy8tyFeAqSZ2Nsz9IS5/QcfUwDHNaTPVXU3MJQ2XQog+w8DPMkNg3IjgWLPzNDF70gS3h5xpmGMspY9az8J8EJ0QfYIufsReeW7qPSYvfRDlDwoqJ3GOR5/lW79J5ATTt6h0qqtDQjtDqembb7vPQCfjqru2miTgTywerSwjVfSZDRQ2Jcox+kmVZuUu3z0nTPM+NlDMUnBJ9sUZWA0q1jbIJuJN2Ua6h/9PPohoewCXqXmo23CNZmseK+X4K1PhWQLvwDW0wJcgs/Hc4JfpSSqkmfqb/V+Oc1BxXfldzbA6ZIAiEamVSPPMwDK0Tnuooq+tLl+K8h2EIAI3rtft8qVN5YRiWQdcouxS1Kxd8zccUThZ+szgl+lXqNpM0WX5V61cNENVFJKljV9Mu6lieZYAr4ZWCHYZhbQTDXVRjn9Bo5pCGXxdBscvmHboONSrqsazzpnrr0/onMQ+CoBR5NaubapQMTfj7DGbHwm+OQYt+tdOMx2Px05/+VFIqN7L41MbZlL1HjSCY5zlubm4wn8+3Ui/qQBNIFIZ2NBpp7xQUQiDLsvVxkBiNRlgul7Kr6IdhiPfv32O1Wt0LsasDPSvKwkSi3eV8dJ6m8Lk6qElU9p2rL+GnZ0Pt7PHjx3j+/Pm9TE77nlWWZXuvUR3J0c+69dB2pyz1tSzLsFqt8NOf/hSffPLJVk6LQ19gLPxmGLToA9vCf3V1hS+++EL84he/AHA3sadakNPptEzqrEKVH0URbm5u8Pd///fyn//5nzGbzTpZxST6SZKU59W1joQQZTJtyh40nU5buaxUpJTwPR9BGGA2m2E+n7c6btd1AUAcx/jw4cNWJ9I9Z1EUmM1muLm52Uoc3vW61KWAbcJ0HBN1ohMArq+v8Rd/8Rf4q7/6Kzx58kTQi63NyHE+n99bmFAHLVUuikJ6nifG47GWe3K1WiFNU9nmBeN5niiKQuZ5juvra/HRRx8hiqLy78cYtbDw948Tok/4vo+rq6syT6b6GeqMFxcXtaJPeThJuKIoQpZlpWjrCDaJMlmey+WyjBXUdI5qh6GfyeILggCLxQLYHF7Iova4pusRYp1KLo7jzlnF1PIozgl9tY2Aqp5HCIE8zxHHMWazGZIkGZzLo4q6eCAMQ0wmE3z00Ufi6dOnW262fcxmM2RZ1upBkPALITCZTLREf5OOULRpB5u6EXX96Jh1pgpyn5gqxzYsEf11cmOdZiOEwGg02vodiVjT5F1RFFitVrUNlN72QRBgtVqVbh01bn9b1Alh8u2qPu+mDqL+Xv0/uYjofBB3cwZtUf3M1eMOsXrJsu5i5atzHpSJaeiiT9ev1hmwHhVRtre2iUvIPdm2XGrfutQZQbvKofg2uvNdNCrQQUpZJnFvC819tYWeHRl4EAJSumv9WyH6QgBFnrfyYxKTyQRRFG0JRHU9ehUpJVar1b1Ey8C26MdxvOVjrg7b99/Pnd9WzTKks3RUPR5QMhN5d5mK6o6pg140nvDgCbuWpKrPh15INl2fLuoKJPWln2XZvTy5u7i8vNQSYwDlqElnfqSuH+2D+lEcx62P65oYnfprWxeM7/uYTqfaK/Aoj3GWZeu+5gfO5sq1QvQhtyc+u1qe1NF2EccxwjC8V07Vyq42Tl1/vDrqoFR5uu6d6jm6rrGnzxayQCHtCjtLz0ZNJzhk0VfdO+qojkZa9P99UCJxHWgOKIqi1v2IytF95nEcNyYtPybVObk+ywHc2aezCztEH9s7FvtuSOTL21fOEARId57BdobwzHehGgvqvagJyPtEnU+ypR8dq5x9OTQOxVQdnRqrZjDUBtv3gzdVDsMQx97N2oSL/YjcLibuB4DTyY6sEn3AXINVJ1tZ+BlTkAvLFeE32Y9MxuOHPR7Qo2Od6ANmGyxH52RMYyq0sIv9iPvr4Vgp+oB5S4UbEmMSF4XfVD9i4T8Ma0UfMG+pDH0SkRkW6obAPmHhZ1SsFn1ge1WPCV8e+/gZk5j08ZvoRyz89mO96AN3a7m5ITEuYjJ9IFv8zCBEHzA/RD1GGce+zq01yhJWrDA45j2ec8clV4/Jdfws/OeJNZuz2mCyIan+/S6x4slyq4tzc7RrF+0ibNL36g5f9e9tzkH/r2YkO8b90DMe+rwK3UeX3Kx0TN+4Kvzsmm3HoEQf2B9fp48yyArrsvv1GNepZr2irfnq7tpdZahhhtVELHSetiKjxiHyvLukLl2CrKlB2ug+iqIwtgGnT9S6IHeKDiSS+4LzHYqJfmSyHGDdT3VDV5wjVjwhCWA8mcDTaOBpmmK5XGpb4BT4qQo1TEqiUhW0vmN/tIWuSQ24tksY1L9RrJQwDMuIh21Ev3rfFN+IUi/SS1HnHpoifdrwjI+FlLIMFjaZTO4C37V45hTQTAch1pFndUYLx+5HTVBkTt2XYBAEmE6nrV9+RVGU4cN18H0fk8mkjHmVZjkKh9qiihWiD6xzuPqajVXNatW2wY7H451JVIRYx9J/9OgRnj17ViZd6ereIauNInvuCrhW17DpZeT7/laiESklIAG5ceyLhn3jUsoyyFoQBFgul3jz5g0+fPgAQF/06TqzLCuzcHWZA1Ejl04mE/z4xz8uf9a19ru+kLu4kvaJCT3PJElwfX2Ny8vLrXSJOhO2uiNMNVppW47dj5ooiqK8Hx3Ln0albeuJIo3qlkN1RKPPNC8AFn37UF0O6s9dUKMhTiYTfPHFF+InP/mJjOO4TCm3L7iUGhnz4uICnufhN7/5DX7961/j/fv3W0K3636qwkLRQ1+/ft05Fy1wlyvg+++/x4cPH0qBbUO1PHJddElzWH0OX3zxBf78z/8cz549Q5Zl2oKSpmn5UtUJADYajbQEheLVV10w1XujfR9hGOLp06eCLEjdl4w6x2EiwuQx+tG+cijPQN/B00wFgxsigxZ9YHv9Mf3cBbUzbjornj59KpIk2RqW7mtI9LfLy0v4vo/f//73crVa4fb2du817vLTV33Fstj4e8X962+CLH0SfUDf0lfXlXf1v1eFbDqd4vPPP8fz589Fnue4vLzUivGuW0eEbiz5PM+xWCxKi3VXOao/Xiek8q7z9Mmx+lEbsiwzGp2ThX+bwYs+oa58OEYFq5a/aqHts/hVMatOWu7rvPs+o05+6vgs6XqCIECWZeVk7iGWfnW+Qxd6TnWWtq5VrFtHJso5plCT8JsQrmP3oyZMh2Vm4b/DGdEHjtdgaRhK7os0TbdENk3TxoakTkiqk8Nt0i62EeBDwvOqPl81I1cbjtlhqstZyd9Lz4zSCrYlSZLaOtqXfEP1s7chz3Okabo1cV1XTnWl0zGeHQu//eUMBadEH9DPHVsH+dDJqqZVL1XqMhSRcKkWPrMbNVUiTajp+NrJh15XR7s6O4142pbjeR7SNK39fJOf+pj7DsiAMLGS7FgbFPdhUvhNzCUMAedEHzieVaQO55tW1lQb7Lk3qK6oz/dQt4vKPhfMscoxJSqmrHA6v4nRhSnhz7KMhR+Oij5gV4PtsnKjLTr3p7qtVGvxlJuhXLImTU1QsvB3x1Qd2YzTvgdTKx849kd3THU815J8kPvF1Moel/rRufdXp0WfcKnBMt1xTVRMCj/gVj865/7qrHuHMLXBBbhrSNUJRXKl9L35ZeiYdvWYKMfEhKupIG0m+5FLdWQb1oh+nueQHeJltEUIsbUVvC20y7Ntx6LVPsDaf1jdcHVuDWwfJCS+7wsKd6G7bFO3jgBs1ZHOjlxd65A+37S6aNdxOruS1Z3Aum3Mxn4EnK6OpJTOhmAALBF9AYFkE+6gbYOdTCYYj8dalUvb6FerVetyoijCZDLREn1a309l9W2xDJ0wDDGdTnFxcYEsy7SDjenWEbFarbBYLFq3Bd/3MZ1OtUQSAOI4xnK51GoHl5eX2hEjsyxDHMfIsmzw/Yg4RR15ngfPDwBHXT/W+PRpDXKfQ3xyvZjwg5q4HxchS9LEsyPrs+9y1H0ffZfjYj9yqY5swJo7VGN/uDIBZnqizSVMJao3OXFIm8/6xMV+5FodnRor3DuEmm3IRKIUExOrajmmdlM2Qbtd6etUoxESin0Wvak6Mh0OoG6y/5i42I9M79xtiFTuBNa90tR4NX2KkSmLSD23DZO4NlxDlV2ib+rF5Jo16Vo/AswuhbUh/3RfWGXpE6YsFVop0mc5akRM6iCnEl66ljzPy0lzUxtvVFTR2xcx1EQdEWzxd8PFOnIZK0Uf2F561ffwtM8GG0URLi8vsVwuyyBidR29q2+06SVS99yCIEAURWWCD10Lrem66Trq/lZ3bvo9RSul3APq+ar3aFJUTCb5MCX8Q+9HKhw87TCsFX3gvqXSF8dssNWh+/Pnz/Gnf/qnmM/nW5Ekq2ItxDpNo+6wP8uyxiV61Y4uhCj3DlCKPB3Br4YvVs8L3Bf+MAxrV17QzxSW+Gc/+xkePHhQ/q0uHLFJUTEVmOtUFn9fuFhHLmK16APDa7BqcDXP8/Ds2TPx5MmTe5+rDlG7ri+uZo2qK4fujbi4uNAuJ89zLJfLxk05qruGGI/HjZmp1BcSTTDvC0xnWlRcdvX0hYt15BrWiz4w7Aa7K6a+Go+fYsjrivGueP+EutMVuEs2rUOe58iybOdIpCr8URRppSNsg4v+Yxb+7rCPX59BiD5wugZ7KLsaYzXGiO7Wdjpm3xb/ascg145uOVmW7b1GVfjpJbFP9GlUpBN24Zh1tAvTcWD69r0PtR/twlQducJgRB/YbrB9ojbYQ63UfccXRdHKtbHr/G2OoxEBLXvTfYY06dtGkOj89NVG9HXv+5h1tA9VkPsuh+qoT4bYj/Zhqo5cYFCiD5iNKngMy6GtoNHwXvfedI4h4e9b9NXr6rPDH6uO2kDPrm/IT903Q+tHbTBVR0NH3M4Xp76G9fBe6G2CM9loTVkPpsoy9ey4jrrDdXTCsoRAXhTOBtq05LUoEUUj+BqNb7lcIk1TbUtCN3phkiRlxEedyaLJZKI1iUmrY+h+dKIXjsdjrY47m83KZZ59Ri/kOlrDdTSsOiqKAqskhZRuzhFYF4ZBB2qkrvgmTfpATZYDcB11gevI7nKGyqBFH+AGewimIllyHXWH68jucobI4EUf2A4u1ScuNtiiMBdmmuuoG1xHdpczNJwQfWA72l/f5bjWYE2JCtdRd7iO7C5nSDgj+gA32ENgUbG7HIDryPZyhoJTog9wgz0EFhW7ywG4jmwvZwg4J/oAN9hDYFGxuxyA68j2cmzHSdEH7hqsiY7hWoM1LSpcR/pwHdldjs04K/rAXXx3Uw22707o4hpxrqPucB0dVs65Cr/Tog+YbbBkEfXdYE0GAHNNVLiOusF15A7Oiz5gLhm4KUsFQOuwxYdiWlT6huuoO1xHbmBNwLUsTSA1Yn/oxuQA1p1jsVhoha7tEjelKIoypklbusRNkVIijmPEcazVIXXjpgDr1IbL5VIrPgvXEdcRMaQ68jwPnh8Ajr4IrLD0hQB8A29bCl/cdzmet07/13eIXCFEWY6JZ2eqHK6jbnAddcNkHdmAFaIPaXY1AmDON2liuRuVY2Lyi+vosHK4jvTLMV5HBkJNnxKr7o4bbPdyTAbm4jrqVg7XUfdyjNYRoJfcY2BYJfqA+QZrauOJiWGjycBcXEfd4DrqXo6xOpIScDSBCmCh6APu7TikslhU9OE6sr8c5+rI0CqlU/H/AUzXs/MzDwDzAAAAAElFTkSuQmCC"> Hierro: <span id="iron">0</span> &nbsp; 🟤 Cuero: <span id="leather">0</span>
+ </div>
+</div>
+
+<canvas id="game" width="810" height="500"></canvas>
+<div id="message"></div>
+
+<div id="bottom">
+ <div class="panel" id="hotbar"></div>
+ <div class="panel">
+  <button onclick="toggleInventory()">🎒 Inventario (I)</button>
+  <button onclick="toggleCrafting()">🔨 Craftear (C)</button>
+  <button onclick="buildMode()">🧱 Construir (B)</button>
+ </div>
+ <button id="helpButton" onclick="openInstructions()">❔ Instrucciones</button>
+</div>
+
+<div id="inventory">
+ <h3>🎒 Inventario</h3>
+ <div id="inventoryItems"></div>
+ <button onclick="toggleInventory()">Cerrar</button>
+</div>
+
+<div id="crafting">
+ <h3>🔨 Mesa de crafteo</h3>
+ <p>🪵 2 madera → 4 🪵 palos</p>
+ <button onclick="craft('sticks')">Crear palos</button>
+ <hr>
+ <p>🗡️ Espada de madera: 1 palo + 2 madera</p>
+ <button onclick="craft('woodSword')">Crear espada de madera</button>
+ <p>🪓 Hacha de madera: 2 palos + 2 madera</p>
+ <button onclick="craft('woodAxe')">Crear hacha de madera</button>
+ <p>⛏️ Pico de madera: 2 palos + 3 madera</p>
+ <button onclick="craft('woodPick')">Crear pico de madera</button>
+ <hr>
+ <p>⚔️ Espada de piedra: 1 palo + 2 piedra</p>
+ <button onclick="craft('stoneSword')">Crear espada de piedra</button>
+ <p>🪓 Hacha de piedra: 2 palos + 2 piedra</p>
+ <button onclick="craft('stoneAxe')">Crear hacha de piedra</button>
+ <p>⛏️ Pico de piedra: 2 palos + 3 piedra</p>
+ <button onclick="craft('stonePick')">Crear pico de piedra</button>
+ <p>🧶 1 lana → 2 hilos de lana</p>
+ <button onclick="craft('woolThread')">Crear hilo de lana</button>
+ <p>🏹 Arco: 2 palos + 3 hilos de lana</p>
+ <button onclick="craft('bow')">Crear arco</button>
+ <p>➡️ 1 palo + 1 piedra = 1 flecha</p>
+ <button onclick="craft('arrow')">Crear flechas</button>
+ <p>🧪 Poción del spawner de zombi: 6 lingotes de hierro + 5 de carne podrida</p>
+ <button onclick="craft('spawnerPotion')">Crear poción del spawner de zombi</button>
+ <p>⛏️ Pico de hierro: 2 palos + 2 lingotes de hierro</p>
+ <button onclick="craft('ironPick')">Crear pico de hierro</button>
+ <hr>
+ <p>🛏️ Cama: 3 bloques de lana + 3 maderas</p>
+ <button onclick="craft('bed')">Crear cama</button>
+ <p>Coloca la cama con B y haz clic en el mapa. Por la noche, acércate y pulsa E para dormir hasta el día.</p>
+ <hr>
+ <h3>🛡️ Armadura de cuero</h3>
+ <p>Casco: 3 cueros</p><button onclick="craft('leatherHelmet')">Crear casco</button>
+ <p>Peto: 8 cueros</p><button onclick="craft('leatherChest')">Crear peto</button>
+ <p>Pantalones: 5 cueros</p><button onclick="craft('leatherLegs')">Crear pantalones</button>
+ <p>Botas: 4 cueros</p><button onclick="craft('leatherBoots')">Crear botas</button>
+ <p>Las piezas se equipan automáticamente al fabricarlas.</p>
+ <hr>
+ <p>🟫 4 madera → 1 bloque de madera</p>
+ <button onclick="craft('woodBlock')">Crear bloque de madera</button>
+ <p>⬜ 4 piedra → 1 bloque de piedra</p>
+ <button onclick="craft('stoneBlock')">Crear bloque de piedra</button>
+ <button onclick="toggleCrafting()">Cerrar</button>
+</div>
+
+<div id="helpOverlay" onclick="closeInstructionsOutside(event)">
+ <div id="helpBox">
+  <button id="closeHelp" onclick="closeInstructions()">✖</button>
+  <h1>🌍 SURVIVAL WORLD</h1>
+  <h2>🎮 Movimiento</h2>
+  <ul>
+   <li>W, A, S y D para moverte.</li>
+   <li>También puedes usar las flechas del teclado.</li>
+  </ul>
+  <h2>🌳 Recursos</h2>
+  <ul>
+   <li>Mantén E cerca de un árbol para conseguir 2 maderas.</li>
+   <li>Mantén E cerca de una roca para conseguir 1 piedra.</li>
+   <li>Las hachas rompen árboles más rápido.</li>
+   <li>Los picos rompen rocas más rápido. Las rocas con hierro solo se pueden excavar con el pico de hierro.</li>
+  </ul>
+  <h2>🎒 Inventario</h2>
+  <ul>
+   <li>Teclas 1–8 o clic en la barra para seleccionar objetos.</li>
+   <li>I: abrir el inventario.</li>
+   <li>F: comer. G: lanzar la poción del spawner de zombi. J: disparar una flecha con el arco.</li>
+  </ul>
+  <h2>🔨 Fabricación</h2>
+  <ul>
+   <li>C: abrir la mesa de crafteo.</li>
+   <li>2 maderas = 4 palos.</li>
+   <li>1 palo + 2 maderas = espada de madera.</li>
+   <li>2 palos + 2 maderas = hacha de madera.</li>
+   <li>2 palos + 3 maderas = pico de madera.</li>
+   <li>1 palo + 2 piedras = espada de piedra.</li>
+   <li>2 palos + 2 piedras = hacha de piedra.</li>
+   <li>2 palos + 3 piedras = pico de piedra.</li>
+   <li>1 lana = 2 hilos. 2 palos + 3 hilos = arco.</li>
+   <li>1 palo + 1 piedra = 1 flecha. Selecciona el arco y pulsa J para disparar.</li>
+   <li>4 maderas = bloque de madera.</li>
+   <li>4 piedras = bloque de piedra.</li>
+   <li>6 lingotes de hierro + 5 de carne podrida = poción del spawner. Pulsa G para entrar en la arena final.</li>
+  </ul>
+  <h2>🐄 Animales</h2>
+  <ul>
+   <li>Hay vacas y ovejas. Cada zombi derrotado da 1 de carne podrida.</li>
+   <li>Acércate a un animal y selecciona una espada.</li>
+   <li>Mantén pulsada la tecla H para cazar al animal más cercano.</li>
+   <li>También puedes mantener pulsado el botón izquierdo del ratón sobre el animal.</li>
+   <li>Van apareciendo nuevos animales, árboles y rocas mientras juegas.</li>
+   <li>Al completar la barra conseguirás comida.</li>
+  </ul>
+  <h2>🧟 Zombis</h2>
+  <ul>
+   <li>En la noche del segundo día aparecen 2 zombis con 75 PS cada uno.</li>
+   <li>Te persiguen lentamente y cada golpe suyo te quita 2 corazones.</li>
+   <li>Pulsa o mantén H cerca de un zombi para golpearlo. Con una espada puedes atacar desde un poco más lejos. La espada de madera quita 15 PS y la de piedra 25 PS; las manos y otros objetos quitan 5 PS.</li>
+   <li>No podrás dormir mientras quede algún zombi en el mapa. Los zombis rompen los bloques que les impiden pasar: madera en 10 golpes y piedra en 25 golpes.</li>
+  </ul>
+  <h2>🏠 Construcción</h2>
+  <ul>
+   <li>B: activar o desactivar el modo construcción.</li>
+   <li>Haz clic en el mapa para colocar bloques.</li>
+   <li>Los jugadores y animales no pueden atravesar los bloques.</li>
+  </ul>
+  <h2>❤️ Supervivencia</h2>
+  <ul>
+   <li>Los corazones muestran tu vida.</li>
+   <li>Los muslitos muestran tu hambre.</li>
+   <li>Cuando el hambre llega a cero, pierdes vida.</li>
+   <li>El mundo alterna entre el día y la noche.</li>
+  </ul>
+  <p style="text-align:center;color:#a5df70">¡Buena suerte y sobrevive!</p>
+ </div>
+</div>
+
+<div id="deathOverlay"><div class="skull">💀</div><h1>HAS MUERTO</h1><p>Tu aventura ha terminado.</p></div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+let player={x:405,y:250,speed:2.5};
+let health=10,hunger=8;
+let wood=0,stone=0,sticks=0,food=0,wool=0,leather=0,iron=0,rottenFlesh=0;
+let armor={helmet:false,chest:false,legs:false,boots:false};
+let damageRemainder=0;
+let dead=false;
+let woodBlocks=0,stoneBlocks=0;
+let blocks=[],animals=[],zombies=[],keys={};
+let arrows=0,threads=0,projectiles=[];
+let enemyArrows=[]; // Flechas disparadas por los zombis arqueros
+let arenaIntroTimer=0;
+let selected=0,build=false;
+let target=null,gatherProgress=0,gatherInterval=null;
+let attackTarget=null,attackProgress=0,attackInterval=null;
+let mouseDown=false;
+let zombieAttackInterval=null,zombieMouseDown=false;
+let secondNightSpawned=false, fourthNightSpawned=false, seventhNightSpawned=false;
+let regenHearts=0,regenTimer=0;
+let dangerWarningShown=false, dangerWarningTimer=0, dangerMode=false, ironOreUnlocked=false;
+let arenaMode=false,arenaBoss=null,arenaSpawner={x:405,y:145,hp:12,maxHp:12,alive:true},gameWon=false;
+let lastTime=performance.now(),worldTime=0,animalSpawnTimer=0,resourceSpawnTimer=0;
+let gameStarted=false;
+const DAY_LENGTH=240000;
+
+let hotbar=[
+ {name:"Manos",icon:"✊",type:"hands"},
+ {name:"Comida",icon:"🍗",type:"food"},
+ null,null,null,null,null,null
+];
+
+function message(t){
+ if(dead)return;
+ document.getElementById("message").textContent=t;
+}
+function showDeath(){
+ if(dead)return;
+ dead=true;
+ keys={};
+ clearInterval(gatherInterval);gatherInterval=null;
+ clearInterval(attackInterval);attackInterval=null;
+ clearInterval(zombieAttackInterval);zombieAttackInterval=null;
+ attackTarget=null;target=null;mouseDown=false;
+ document.getElementById("deathOverlay").style.display="flex";
+ document.getElementById("message").textContent="";
+}
+
+function updateHUD(){
+ document.getElementById("hearts").textContent="❤️".repeat(health)+"♡".repeat(10-health);
+ document.getElementById("hunger").textContent="🍗".repeat(hunger)+"▫️".repeat(10-hunger);
+ document.getElementById("wood").textContent=wood;
+ document.getElementById("stone").textContent=stone;
+ document.getElementById("iron").textContent=iron;
+
+ document.getElementById("leather").textContent=leather;
+ drawHotbar();
+}
+
+function drawHotbar(){
+ const bar=document.getElementById("hotbar");
+ bar.innerHTML="";
+ hotbar.forEach((item,i)=>{
+  const slot=document.createElement("div");
+  slot.className="slot"+(selected===i?" selected":"");
+  slot.innerHTML=(item?item.icon:" ")+"<small>"+(i+1)+
+   (item&&item.durability!==undefined?" · "+item.durability:item&&item.type==="block"?" · "+item.quantity:"")+"</small>";
+  slot.addEventListener("click",()=>{
+   selected=i;updateHUD();if(mpConnected&&!mpIsHost)mpMatch.send({type:"remote-select",selected},{reliable:false});
+   message(item?"Seleccionado: "+item.name:"Casilla vacía.");
+  });
+  bar.appendChild(slot);
+ });
+}
+
+function currentItem(){return hotbar[selected]}
+function getTool(){
+ const item=currentItem();
+ return item&&item.type==="tool"?item:null;
+}
+
+function addToBar(item){
+ let index=hotbar.findIndex((v,i)=>i>=2&&v===null);
+ if(index<0)index=hotbar.findIndex(v=>v===null);
+ if(index>=0){hotbar[index]=item;selected=index}
+ else message("No tienes espacio en la barra rápida.");
+ updateHUD();
+}
+
+function addBlockToBar(blockType,icon,name){
+ let item=hotbar.find(v=>v&&v.type==="block"&&v.blockType===blockType);
+ if(item){item.quantity++;selected=hotbar.indexOf(item);}
+ else{
+  let index=hotbar.findIndex((v,i)=>i>=2&&v===null);
+  if(index<0)index=hotbar.findIndex(v=>v===null);
+  if(index>=0){hotbar[index]={name,icon,type:"block",blockType,quantity:1};selected=index;}
+  else message("¡La barra rápida está llena! El bloque queda guardado en el inventario.");
+ }
+ updateHUD();
+}
+
+function spawnAnimal(){
+ if(animals.length>=(dangerMode?16:10))return;
+ let x,y,tries=0;
+ do{
+  x=40+Math.random()*730;y=40+Math.random()*420;tries++;
+ }while(tries<30&&(Math.hypot(x-player.x,y-player.y)<110||animals.some(a=>Math.hypot(x-a.x,y-a.y)<45)||blocked(x,y,18)));
+ animals.push({
+  x,y,kind:Math.random()<(dangerMode?0.78:0.5)?"cow":"sheep",
+  dir:Math.random()*Math.PI*2,move:Math.random()*2000
+ });
+}
+
+function spawnResource(){
+ const livingResources=blocks.filter(b=>!b.placed&&b.alive).length;
+ if(livingResources>=45)return;
+ let x,y,tries=0;
+ do{
+  x=35+Math.random()*740;y=35+Math.random()*430;tries++;
+ }while(tries<35&&(Math.hypot(x-player.x,y-player.y)<95||blocks.some(b=>Math.hypot(x-b.x,y-b.y)<48)||animals.some(a=>Math.hypot(x-a.x,y-a.y)<42)||blocked(x,y,18)));
+ if(tries<35){let type=Math.random()<0.62?"tree":"rock";if(ironOreUnlocked&&type==="rock"&&Math.random()<0.18)type="ironOre";blocks.push({x,y,type,alive:true});}
+}
+
+function randomWorld(){
+ for(let i=0;i<22;i++){
+  let x=30+Math.random()*750,y=30+Math.random()*440;
+  if(Math.hypot(x-player.x,y-player.y)>100){
+   blocks.push({x,y,type:Math.random()<0.65?"tree":"rock",alive:true});
+  }
+ }
+ // Al principio aparecen tres vacas y tres ovejas.
+ for(let i=0;i<3;i++){
+  spawnAnimal();spawnAnimal();
+ }
+}
+randomWorld();
+
+function blocked(x,y,r){
+ return blocks.some(b=>b.placed&&Math.abs(x-b.x)<20+r&&Math.abs(y-b.y)<20+r);
+}
+function blockingPlacedBlock(x,y,r){
+ return blocks.find(b=>b.placed&&b.type!=="bed"&&Math.abs(x-b.x)<20+r&&Math.abs(y-b.y)<20+r);
+}
+function zombieBreakBlock(z,b){
+ if(!b)return;
+ if(z.blockCooldown>0)return;
+ if(b.zombieHits===undefined)b.zombieHits=b.type==="woodBlock"?10:25;
+ b.zombieHits--;
+ z.blockCooldown=850;
+ if(b.zombieHits<=0){
+  const index=blocks.indexOf(b);
+  if(index>=0)blocks.splice(index,1);
+ }
+}
+
+function movePlayer(dx,dy){
+ let nx=player.x+dx,ny=player.y+dy;
+ if(nx>12&&nx<798&&!blocked(nx,player.y,10))player.x=nx;
+ if(ny>12&&ny<488&&!blocked(player.x,ny,10))player.y=ny;
+}
+
+function drawTree(x,y){
+ ctx.fillStyle="#79502c";ctx.fillRect(x-9,y-2,18,32);
+ ctx.fillStyle="#268039";ctx.fillRect(x-30,y-24,60,35);
+ ctx.fillStyle="#399b48";ctx.fillRect(x-17,y-43,38,20);
+}
+function drawRock(x,y){
+ ctx.fillStyle="#898989";ctx.fillRect(x-18,y-18,36,36);
+ ctx.fillStyle="#aaa";ctx.fillRect(x-13,y-15,12,7);
+}
+function drawIronOre(x,y){
+ drawRock(x,y);
+ ctx.fillStyle="#c4c7ca";ctx.fillRect(x-8,y-8,5,5);ctx.fillRect(x+3,y-3,6,5);ctx.fillRect(x-2,y+7,5,4);
+ ctx.fillStyle="#eef0f2";ctx.fillRect(x-7,y-8,2,2);ctx.fillRect(x+4,y-3,2,2);
+}
+function drawPlayer(){
+ ctx.fillStyle="#e2ad83";ctx.fillRect(player.x-12,player.y-19,24,23);
+ ctx.fillStyle="#60402c";ctx.fillRect(player.x-12,player.y-25,24,7);
+ ctx.fillStyle="#2866ce";ctx.fillRect(player.x-12,player.y+4,24,25);
+ ctx.fillStyle="#202c65";
+ ctx.fillRect(player.x-12,player.y+25,9,12);
+ ctx.fillRect(player.x+3,player.y+25,9,12);
+
+ // Armadura de cuero visible sobre el personaje.
+ ctx.fillStyle="#8b542e";
+ if(armor.helmet){
+  ctx.fillRect(player.x-13,player.y-27,26,9);
+  ctx.fillRect(player.x-13,player.y-19,4,5);
+  ctx.fillRect(player.x+9,player.y-19,4,5);
+ }
+ if(armor.chest){
+  ctx.fillRect(player.x-14,player.y+2,28,25);
+  ctx.fillStyle="#b87942";
+  ctx.fillRect(player.x-9,player.y+5,18,17);
+ }
+ if(armor.legs){
+  ctx.fillStyle="#8b542e";
+  ctx.fillRect(player.x-13,player.y+25,11,13);
+  ctx.fillRect(player.x+2,player.y+25,11,13);
+ }
+ if(armor.boots){
+  ctx.fillStyle="#63391f";
+  ctx.fillRect(player.x-13,player.y+34,12,6);
+  ctx.fillRect(player.x+2,player.y+34,12,6);
+ }
+ const item=currentItem();
+ if(item&&item.type==="tool"){
+  ctx.font="20px Arial";ctx.fillStyle="white";
+  ctx.fillText(item.icon,player.x+13,player.y+10);
+ }
+}
+function drawCow(a){
+ const x=a.x,y=a.y;
+ ctx.fillStyle="#f2f0e8";ctx.fillRect(x-19,y-12,38,25);
+ ctx.fillStyle="#393939";
+ ctx.fillRect(x-12,y-10,10,9);ctx.fillRect(x+5,y+1,10,9);
+ ctx.fillStyle="#f0eee5";ctx.fillRect(x+15,y-13,14,17);
+ ctx.fillStyle="#df9d9d";ctx.fillRect(x+25,y-5,8,8);
+ ctx.fillStyle="#e5d8ae";
+ ctx.fillRect(x+17,y-19,4,7);ctx.fillRect(x+25,y-19,4,7);
+ ctx.fillStyle="#51453a";
+ ctx.fillRect(x-13,y+11,5,11);ctx.fillRect(x+9,y+11,5,11);
+}
+function drawSheep(a){
+ const x=a.x,y=a.y;
+ ctx.fillStyle="#eee9df";
+ ctx.fillRect(x-18,y-13,36,25);
+ ctx.fillRect(x-14,y-19,12,9);ctx.fillRect(x+1,y-20,13,10);
+ ctx.fillStyle="#d5b2a3";ctx.fillRect(x+13,y-12,15,16);
+ ctx.fillStyle="#333";ctx.fillRect(x+22,y-7,3,3);
+ ctx.fillStyle="#555";
+ ctx.fillRect(x-12,y+10,5,10);ctx.fillRect(x+8,y+10,5,10);
+}
+function drawAnimals(){
+ animals.forEach(a=>a.kind==="cow"?drawCow(a):drawSheep(a));
+}
+
+function drawZombie(z){
+ const x=z.x,y=z.y;
+ // Zombi pixelado, sin detalles gráficos.
+ ctx.fillStyle="#3c9b55";ctx.fillRect(x-10,y-24,20,18);
+ ctx.fillStyle="#27733c";ctx.fillRect(x-13,y-7,26,24);
+ ctx.fillStyle="#245c34";ctx.fillRect(x-12,y+16,9,15);ctx.fillRect(x+3,y+16,9,15);
+ ctx.fillStyle="#d9f4c8";ctx.fillRect(x-6,y-18,4,4);ctx.fillRect(x+3,y-18,4,4);
+ ctx.fillStyle="#183b25";ctx.fillRect(x-5,y-9,10,3);
+ ctx.fillStyle="#245c34";ctx.fillRect(x-19,y-5,7,19);ctx.fillRect(x+12,y-5,7,19);
+ if(z.archer){
+  // Arco de pixel art sostenido en la mano
+  ctx.strokeStyle="#70421f";ctx.lineWidth=3;ctx.beginPath();
+  ctx.arc(x+22,y+2,10,-Math.PI/2,Math.PI/2);ctx.stroke();
+  ctx.strokeStyle="#e8d8b5";ctx.lineWidth=1;ctx.beginPath();
+  ctx.moveTo(x+22,y-8);ctx.lineTo(x+22,y+12);ctx.stroke();
+  ctx.fillStyle="#70421f";ctx.fillRect(x+15,y-2,5,4);
+ }
+ if(z.ironDrop){ctx.fillStyle="#aeb4ba";ctx.fillRect(x+14,y+1,9,5);ctx.fillStyle="#e5e8eb";ctx.fillRect(x+16,y-1,9,5);ctx.fillStyle="#747b82";ctx.fillRect(x+16,y+4,9,2);}
+ // Barra de vida de 75 PS.
+ const w=42,px=x-w/2,py=y-38;
+ ctx.fillStyle="#222";ctx.fillRect(px-2,py-2,w+4,9);
+ ctx.fillStyle="#5b2020";ctx.fillRect(px,py,w,5);
+ ctx.fillStyle="#42d45b";ctx.fillRect(px,py,w*Math.max(0,z.hp/75),5);
+ ctx.strokeStyle="white";ctx.strokeRect(px-1,py-1,w+2,7);
+ ctx.fillStyle="white";ctx.font="10px Arial";ctx.textAlign="center";ctx.fillText(z.hp+"/75 PS",x,py-4);ctx.textAlign="left";
+}
+
+function spawnNightZombies(count){
+ const total=mpConnected?count*2:count;
+ for(let i=0;i<total;i++){
+  let x,y,tries=0;
+  do{
+   const angle=Math.random()*Math.PI*2;
+   const distance=230+Math.random()*120;
+   x=Math.max(35,Math.min(775,player.x+Math.cos(angle)*distance));
+   y=Math.max(35,Math.min(465,player.y+Math.sin(angle)*distance));
+   tries++;
+  }while(tries<35&&(Math.hypot(x-player.x,y-player.y)<150||blocked(x,y,18)||zombies.some(z=>Math.hypot(x-z.x,y-z.y)<55)));
+  const elite=(count===10&&i<2);const archer=(count===5&&i<2);zombies.push({x,y,hp:75,hitCooldown:0,blockCooldown:0,elite,speed:elite?0.50:(archer?0.34:0.42),damage:elite?3:2,ironDrop:elite,archer,shootCooldown:2200+Math.random()*2200});
+ }
+}
+
+/* Barra de progreso dibujada encima del objeto */
+function drawObjectProgress(x,y,progress){
+ const width=48,height=7;
+ const px=x-width/2,py=y-52;
+ ctx.fillStyle="#222";
+ ctx.fillRect(px-2,py-2,width+4,height+4);
+ ctx.fillStyle="#555";
+ ctx.fillRect(px,py,width,height);
+ ctx.fillStyle="#f1d43b";
+ ctx.fillRect(px,py,width*Math.min(1,progress/100),height);
+ ctx.strokeStyle="white";
+ ctx.lineWidth=1;
+ ctx.strokeRect(px-1,py-1,width+2,height+2);
+}
+
+function enterSpawnerArena(){
+ arenaMode=true;gameWon=false;player.x=405;player.y=405;player.speed=2.5;
+ blocks=[];animals=[];zombies=[];build=false;target=null;attackTarget=null;
+ arenaBoss={x:405,y:290,hp:500,maxHp:500,hitCooldown:0};
+ arenaIntroTimer=3000;
+ arenaSpawner={x:405,y:145,hp:12,maxHp:12,alive:true};
+ message("El combate final...");
+}
+function drawArena(){
+ ctx.fillStyle="#777";ctx.fillRect(0,0,810,500);
+ // Suelo formado enteramente por bloques de piedra transitables.
+ for(let y=0;y<500;y+=32)for(let x=0;x<810;x+=32){
+  ctx.fillStyle=((x/32+y/32)%2===0)?"#858585":"#777";ctx.fillRect(x,y,31,31);
+  ctx.strokeStyle="#626262";ctx.strokeRect(x,y,31,31);
+ }
+ // Spawner central
+ if(arenaSpawner.alive){
+  const x=arenaSpawner.x,y=arenaSpawner.y;
+  ctx.fillStyle="#292929";ctx.fillRect(x-31,y-31,62,62);
+  ctx.fillStyle="#555";ctx.fillRect(x-25,y-25,50,50);
+  ctx.strokeStyle="#222";ctx.lineWidth=4;ctx.strokeRect(x-25,y-25,50,50);
+  ctx.fillStyle="#9b9b9b";ctx.fillRect(x-13,y-13,26,26);
+  ctx.fillStyle="#191919";ctx.fillRect(x-7,y-8,14,16);
+  ctx.fillStyle="#e7d34d";ctx.fillRect(x-25,y-43,50,5);
+  ctx.fillStyle="#63d66a";ctx.fillRect(x-25,y-43,50*(arenaSpawner.hp/arenaSpawner.maxHp),5);
+ }
+ if(arenaBoss&&arenaBoss.hp>0){
+  const b=arenaBoss,x=b.x,y=b.y;
+  ctx.fillStyle="#287d35";ctx.fillRect(x-28,y-48,56,90);
+  ctx.fillStyle="#368d40";ctx.fillRect(x-38,y-78,76,43);
+  ctx.fillStyle="#111";ctx.fillRect(x-22,y-63,12,9);ctx.fillRect(x+10,y-63,12,9);
+  ctx.fillStyle="#111";ctx.fillRect(x-12,y-43,24,7);
+  ctx.fillStyle="#222";ctx.fillRect(x-36,y+38,25,22);ctx.fillRect(x+11,y+38,25,22);
+  ctx.fillStyle="#222";ctx.fillRect(x-48,y-35,18,58);ctx.fillRect(x+30,y-35,18,58);
+  ctx.fillStyle="#222";ctx.fillRect(x-55,y-100,110,9);
+  ctx.fillStyle="#e33";ctx.fillRect(x-55,y-100,110*(b.hp/b.maxHp),9);
+  ctx.fillStyle="white";ctx.font="bold 14px Arial";ctx.textAlign="center";ctx.fillText("ZOMBI GIGANTE · "+b.hp+" PS",x,y-108);ctx.textAlign="left";
+ }
+ projectiles.forEach(a=>{ctx.fillStyle="#f3e3b0";ctx.fillRect(a.x-5,a.y-2,10,4);});
+ enemyArrows.forEach(a=>{
+  const ang=Math.atan2(a.vy,a.vx);
+  ctx.save();ctx.translate(a.x,a.y);ctx.rotate(ang);
+  ctx.strokeStyle="#5b351c";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-10,0);ctx.lineTo(9,0);ctx.stroke();
+  ctx.fillStyle="#dedede";ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(5,-4);ctx.lineTo(5,4);ctx.fill();
+  ctx.fillStyle="#eee";ctx.fillRect(-11,-3,4,2);ctx.fillRect(-11,1,4,2);
+  ctx.restore();
+ });
+ drawPlayer();
+ ctx.fillStyle="white";ctx.font="bold 16px Arial";ctx.fillText("ARENA DEL SPAWNER",12,22);
+ if(arenaIntroTimer>0){ctx.fillStyle="rgba(0,0,0,.72)";ctx.fillRect(70,185,670,105);ctx.fillStyle="#fff";ctx.textAlign="center";ctx.font="bold 42px Arial";ctx.fillText("El combate final...",405,248);ctx.textAlign="left";}
+ if(gameWon){ctx.fillStyle="rgba(0,0,0,.82)";ctx.fillRect(25,120,760,250);ctx.fillStyle="#42e65b";ctx.textAlign="center";ctx.font="bold 29px Arial";ctx.fillText("¡Enhorabuena, te has pasado el juego",405,205);ctx.fillText("Survival World. ¡Prueba nuestros otros juegos!",405,255);ctx.textAlign="left";}
+}
+function arenaAttack(){
+ if(!arenaMode||gameWon||dead)return;
+ const item=currentItem(),isIronPick=item&&item.name==="Pico de hierro";
+ if(arenaBoss&&arenaBoss.hp>0&&Math.hypot(player.x-arenaBoss.x,player.y-arenaBoss.y)<105){
+  const damage=item&&item.kind==="sword"?40:5;
+  arenaBoss.hp=Math.max(0,arenaBoss.hp-damage);
+  if(arenaBoss.hp===0)message("¡Has derrotado al zombi gigante! Ahora rompe el spawner con el pico de hierro.");
+  updateHUD();return;
+ }
+ if(arenaBoss&&arenaBoss.hp<=0&&arenaSpawner.alive&&Math.hypot(player.x-arenaSpawner.x,player.y-arenaSpawner.y)<90){
+  if(!isIronPick){message("Necesitas el pico de hierro para romper el spawner.");return;}
+  arenaSpawner.hp=Math.max(0,arenaSpawner.hp-1);
+  if(arenaSpawner.hp===0){arenaSpawner.alive=false;gameWon=true;message("¡Has completado Survival World!");}
+  updateHUD();return;
+ }
+ message("Acércate al zombi gigante o al spawner.");
+}
+
+function drawRemotePlayer(){
+ if(!remotePlayer)return;
+ const x=remotePlayer.x,y=remotePlayer.y;
+ // Segundo jugador: aspecto pixelado distinto para distinguirlo del jugador local.
+ ctx.fillStyle="#f0bd91";ctx.fillRect(x-12,y-19,24,23);
+ ctx.fillStyle="#3b2418";ctx.fillRect(x-12,y-25,24,7);
+ ctx.fillStyle="#24a6a0";ctx.fillRect(x-12,y+4,24,25);
+ ctx.fillStyle="#174b50";ctx.fillRect(x-12,y+25,9,12);ctx.fillRect(x+3,y+25,9,12);
+ ctx.fillStyle="white";ctx.font="11px Arial";ctx.textAlign="center";
+ ctx.fillText("Jugador 2",x,y-32);ctx.textAlign="left";
+}
+
+function drawWorld(){
+ if(arenaMode){drawArena();return;}
+ ctx.fillStyle="#75b849";ctx.fillRect(0,0,810,500);
+ for(let i=0;i<250;i++){
+  ctx.fillStyle="#80c252";ctx.fillRect((i*79)%810,(i*47)%500,3,3);
+ }
+
+ blocks.forEach(b=>{
+  if(!b.alive&&!b.placed)return;
+  if(b.placed){
+   if(b.type==="bed"){
+    // Cama sencilla de madera con colchón blanco y almohada.
+    ctx.fillStyle="#79502c";ctx.fillRect(b.x-23,b.y-11,46,23);
+    ctx.fillStyle="#d94d4d";ctx.fillRect(b.x-19,b.y-9,38,17);
+    ctx.fillStyle="#f5f1e8";ctx.fillRect(b.x-17,b.y-8,11,9);
+    ctx.fillStyle="#79502c";ctx.fillRect(b.x-23,b.y+10,5,5);ctx.fillRect(b.x+18,b.y+10,5,5);
+   }else{
+    ctx.fillStyle=b.type==="woodBlock"?"#94602e":"#888";
+    ctx.fillRect(b.x-16,b.y-16,32,32);
+    if(b.zombieHits!==undefined){
+     const total=b.type==="woodBlock"?10:25;
+     ctx.fillStyle="#222";ctx.fillRect(b.x-15,b.y-23,30,5);
+     ctx.fillStyle="#e8d34b";ctx.fillRect(b.x-15,b.y-23,30*(b.zombieHits/total),5);
+    }
+   }
+  }else if(b.type==="tree")drawTree(b.x,b.y);
+  else if(b.type==="ironOre")drawIronOre(b.x,b.y);
+  else drawRock(b.x,b.y);
+ });
+
+ drawAnimals();
+ zombies.forEach(drawZombie);
+ projectiles.forEach(a=>{ctx.fillStyle="#f3e3b0";ctx.fillRect(a.x-5,a.y-2,10,4);});
+ enemyArrows.forEach(a=>{
+  const ang=Math.atan2(a.vy,a.vx);
+  ctx.save();ctx.translate(a.x,a.y);ctx.rotate(ang);
+  ctx.strokeStyle="#5b351c";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-10,0);ctx.lineTo(9,0);ctx.stroke();
+  ctx.fillStyle="#dedede";ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(5,-4);ctx.lineTo(5,4);ctx.fill();
+  ctx.fillStyle="#eee";ctx.fillRect(-11,-3,4,2);ctx.fillRect(-11,1,4,2);
+  ctx.restore();
+ });
+ drawPlayer();
+ drawRemotePlayer();
+
+ if(target&&target.alive){
+  drawObjectProgress(target.x,target.y,gatherProgress);
+ }
+ if(attackTarget){
+  drawObjectProgress(attackTarget.x,attackTarget.y,attackProgress);
+ }
+
+ const night=worldTime%DAY_LENGTH>=DAY_LENGTH/2;
+ if(night){
+  ctx.fillStyle="rgba(0,0,35,0.55)";
+  ctx.fillRect(0,0,810,500);
+ }
+ ctx.fillStyle="white";ctx.font="16px Arial";
+ const dayNumber=Math.floor(worldTime/DAY_LENGTH)+1;
+ ctx.fillText(night?"Noche 🌙 "+dayNumber:"Día ☀ "+dayNumber,690,24);
+ if(build)ctx.fillText("MODO CONSTRUCCIÓN",12,22);
+ if(dangerWarningTimer>0){
+  ctx.fillStyle="rgba(0,0,0,0.68)";ctx.fillRect(65,155,680,190);
+  ctx.strokeStyle="#6f1010";ctx.lineWidth=4;ctx.strokeRect(65,155,680,190);
+  ctx.fillStyle="#7d1010";ctx.textAlign="center";ctx.font="bold 27px Arial";
+  ctx.fillText("¡Precaución!",405,205);
+  ctx.font="bold 21px Arial";
+  ctx.fillText("En el Día 7 hay una oleada de unos",405,250);
+  ctx.fillText("diez zombis... ¡PREPÁRATE!",405,285);
+  ctx.textAlign="left";
+ }
+}
+
+function loop(now){
+ if(dead)return;
+ if(!gameStarted){lastTime=now;drawWorld();requestAnimationFrame(loop);return;}
+ let dt=now-lastTime;lastTime=now;
+ const previousWorldTime=worldTime;
+ worldTime+=dt;
+ if(arenaIntroTimer>0)arenaIntroTimer=Math.max(0,arenaIntroTimer-dt);
+ updateProjectiles(dt);
+ updateEnemyArrows(dt);
+ const isSecondNight=worldTime>=DAY_LENGTH*1.5;
+ if(isSecondNight&&!secondNightSpawned){secondNightSpawned=true;spawnNightZombies(2)}
+ const isFourthNight=worldTime>=DAY_LENGTH*3.5;
+ if(isFourthNight&&!fourthNightSpawned){fourthNightSpawned=true;spawnNightZombies(3)}
+ const isSeventhNight=worldTime>=DAY_LENGTH*6.5;
+ if(isSeventhNight&&!seventhNightSpawned){seventhNightSpawned=true;ironOreUnlocked=true;spawnNightZombies(10)}
+ if(worldTime>=DAY_LENGTH*4&&!dangerWarningShown){
+  dangerWarningShown=true;dangerMode=true;dangerWarningTimer=10000;
+ }
+ if(dangerWarningTimer>0)dangerWarningTimer=Math.max(0,dangerWarningTimer-dt);
+ // La comida permite recuperar hasta 3 corazones poco a poco.
+ if(regenHearts>0&&health<10){
+  regenTimer+=dt;
+  if(regenTimer>=5000){regenTimer-=5000;health=Math.min(10,health+1);regenHearts--;updateHUD();}
+ }else{regenTimer=0;regenHearts=0;}
+ animalSpawnTimer+=dt;resourceSpawnTimer+=dt;
+ if(animalSpawnTimer>=(dangerMode?12000:18000)){animalSpawnTimer=0;spawnAnimal()}
+ if(resourceSpawnTimer>=10000){resourceSpawnTimer=0;spawnResource()}
+ let dx=0,dy=0;
+ if(keys.w||keys.ArrowUp)dy-=player.speed;
+ if(keys.s||keys.ArrowDown)dy+=player.speed;
+ if(keys.a||keys.ArrowLeft)dx-=player.speed;
+ if(keys.d||keys.ArrowRight)dx+=player.speed;
+ if(dx&&dy){dx*=0.707;dy*=0.707}
+ movePlayer(dx,dy);
+ // El anfitrión mueve también al invitado con las teclas recibidas por WebRTC.
+ if(mpConnected&&mpIsHost&&remotePlayer){
+  processRemoteMining(dt);
+  let rx=0,ry=0;
+  if(remoteKeys.w||remoteKeys.ArrowUp)ry-=remotePlayer.speed||player.speed;
+  if(remoteKeys.s||remoteKeys.ArrowDown)ry+=remotePlayer.speed||player.speed;
+  if(remoteKeys.a||remoteKeys.ArrowLeft)rx-=remotePlayer.speed||player.speed;
+  if(remoteKeys.d||remoteKeys.ArrowRight)rx+=remotePlayer.speed||player.speed;
+  if(rx&&ry){rx*=0.707;ry*=0.707;}
+  const rnx=remotePlayer.x+rx*(dt/16.67), rny=remotePlayer.y+ry*(dt/16.67);
+  if(rnx>15&&rnx<795&&!blocked(rnx,remotePlayer.y,11))remotePlayer.x=rnx;
+  if(rny>15&&rny<485&&!blocked(remotePlayer.x,rny,11))remotePlayer.y=rny;
+ }
+ if(arenaMode&&arenaBoss&&arenaBoss.hp>0&&!gameWon){
+  const bx=player.x-arenaBoss.x,by=player.y-arenaBoss.y,bd=Math.hypot(bx,by)||1;
+  if(bd>58){arenaBoss.x+=bx/bd*0.34*(dt/16.67);arenaBoss.y+=by/bd*0.34*(dt/16.67);}
+  arenaBoss.hitCooldown-=dt;
+  if(bd<62&&arenaBoss.hitCooldown<=0){takeDamage(3);arenaBoss.hitCooldown=1500;updateHUD();if(health<=0)showDeath();}
+ }
+
+ zombies.forEach(z=>{
+  // Los zombis persiguen al jugador más cercano, sea el anfitrión o el invitado.
+  const remoteDistance=mpConnected&&remotePlayer?Math.hypot(remotePlayer.x-z.x,remotePlayer.y-z.y):Infinity;
+  const localDistance=Math.hypot(player.x-z.x,player.y-z.y);
+  const targetIsRemote=remoteDistance<localDistance;
+  const targetPlayer=targetIsRemote?remotePlayer:player;
+  const dx=targetPlayer.x-z.x,dy=targetPlayer.y-z.y;
+  const distance=Math.hypot(dx,dy)||1;
+  z.blockCooldown-=dt;
+  if(distance>25){
+   const step=z.speed||0.42;
+   const nx=z.x+dx/distance*step*(dt/16.67);
+   const ny=z.y+dy/distance*step*(dt/16.67);
+   let hitWall=false;
+   if(nx>20&&nx<790){
+    if(!blocked(nx,z.y,11))z.x=nx;
+    else {zombieBreakBlock(z,blockingPlacedBlock(nx,z.y,11));hitWall=true;}
+   }
+   if(ny>20&&ny<480){
+    if(!blocked(z.x,ny,11))z.y=ny;
+    else if(!hitWall)zombieBreakBlock(z,blockingPlacedBlock(z.x,ny,11));
+   }
+  }
+  z.hitCooldown-=dt;
+  if(distance<30&&z.hitCooldown<=0){
+   if(targetIsRemote&&mpConnected&&mpIsHost){
+    withRemoteInventory(()=>{takeDamage(z.damage||2);if(health<=0)dead=true;});sendRemoteInventory();
+   }else{
+    takeDamage(z.damage||2);updateHUD();
+    if(health<=0)showDeath();
+   }
+   z.hitCooldown=z.elite?1200:1400;
+  }
+ });
+ animals.forEach(a=>{
+  a.move-=dt;
+  if(a.move<=0){
+   a.dir=Math.random()*Math.PI*2;
+   a.move=2500+Math.random()*3000;
+  }
+  let nx=a.x+Math.cos(a.dir)*0.16;
+  let ny=a.y+Math.sin(a.dir)*0.16;
+  if(nx>35&&nx<775&&ny>35&&ny<465&&!blocked(nx,ny,17)){
+   a.x=nx;a.y=ny;
+  }else{
+   a.dir+=Math.PI;a.move=1000;
+  }
+ });
+ drawWorld();
+ requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+window.addEventListener("keydown",e=>{
+ if(dead){e.preventDefault();return;}
+ // Evita que las flechas desplacen la página; siguen moviendo al jugador.
+ if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key))e.preventDefault();
+ const k=e.key.length===1?e.key.toLowerCase():e.key;
+ keys[k]=true;
+ if(mpConnected&&!mpIsHost&&k==="h"&&!e.repeat){try{mpMatch.send({type:"remote-action",action:"attack"},{reliable:true});}catch(_){}}
+ if("12345678".includes(e.key)){
+  selected=Number(e.key)-1;updateHUD();if(mpConnected&&!mpIsHost)mpMatch.send({type:"remote-select",selected},{reliable:false});
+ }
+ if(k==="i")toggleInventory();
+ if(k==="c")toggleCrafting();
+ if(k==="b")buildMode();
+ if(k==="f")eatFood();
+ if(k==="e"&&!e.repeat)startGather();
+ if(k==="h"&&!e.repeat){if(arenaMode){arenaAttack();startZombieAttackLoop();}else{startHuntWithKey();startZombieAttackLoop();}}
+ if(k==="j"&&!e.repeat)shootArrow();
+ if(k==="g"&&!e.repeat&&!arenaMode){const slot=hotbar.findIndex(x=>x&&x.type==="potion");if(slot>=0){hotbar[slot]=null;selected=0;updateHUD();enterSpawnerArena();}else message("Necesitas crear la poción del spawner de zombi.");}
+});
+window.addEventListener("keyup",e=>{
+ if(dead)return;
+ const k=e.key.length===1?e.key.toLowerCase():e.key;
+ keys[k]=false;
+ if(k==="e")stopGather();
+ if(k==="h"){stopAttack();stopZombieAttackLoop();}
+});
+
+function processRemoteMining(dt){
+ if(!mpConnected||!mpIsHost||!remotePlayer||remoteDead)return;
+ if(!remoteKeys.e){remoteGatherTarget=null;remoteGatherProgress=0;return;}
+ if(!remoteGatherTarget||!remoteGatherTarget.alive||Math.hypot(remotePlayer.x-remoteGatherTarget.x,remotePlayer.y-remoteGatherTarget.y)>60){
+  remoteGatherTarget=null;remoteGatherProgress=0;
+  let best=55; for(const b of blocks){if(b.alive&&!b.placed){const d=Math.hypot(remotePlayer.x-b.x,remotePlayer.y-b.y);if(d<best){best=d;remoteGatherTarget=b;}}}
+ }
+ if(!remoteGatherTarget)return;
+ withRemoteInventory(()=>{
+  const t=remoteGatherTarget, tool=getTool(); let speed=0.6;
+  if(t.type==="ironOre"&&(!tool||tool.name!=="Pico de hierro")){remoteGatherTarget=null;remoteGatherProgress=0;return;}
+  if(tool){if(tool.kind==="axe"&&t.type==="tree")speed=3;else if(tool.kind==="pick"&&(t.type==="rock"||(t.type==="ironOre"&&tool.name==="Pico de hierro")))speed=3;else speed=0.8;}
+  if(dangerMode)speed*=1.25;
+  remoteGatherProgress+=speed*(dt/50);
+  if(remoteGatherProgress>=100&&t.alive){t.alive=false;if(t.type==="tree")wood+=2;else if(t.type==="ironOre")iron+=1;else stone+=1;damageTool();remoteGatherTarget=null;remoteGatherProgress=0;updateHUD();}
+ });
+}
+
+function nearestResource(){
+ let found=null,dist=55;
+ blocks.forEach(b=>{
+  if(b.alive&&!b.placed){
+   let d=Math.hypot(player.x-b.x,player.y-b.y);
+   if(d<dist){dist=d;found=b}
+  }
+ });
+ return found;
+}
+
+function startGather(){
+ if(mpConnected&&!mpIsHost){mpMatch.send({type:"remote-mine",active:true},{reliable:true});return;}
+ if(gatherInterval)return;
+ const nearbyBed=blocks.find(b=>b.placed&&b.type==="bed"&&Math.hypot(player.x-b.x,player.y-b.y)<55);
+ const isNight=worldTime%DAY_LENGTH>=DAY_LENGTH/2;
+ if(nearbyBed){
+  if(zombies.length)return;
+  if(isNight){
+   worldTime=(Math.floor(worldTime/DAY_LENGTH)+1)*DAY_LENGTH;
+   message("¡Has dormido! Ya es de día.");
+  }else{
+   message("Solo puedes dormir por la noche.");
+  }
+  return;
+ }
+ target=nearestResource();
+ if(!target){message("Acércate a un árbol o una roca.");return}
+ if(target.type==="ironOre"&&(!getTool()||getTool().name!=="Pico de hierro")){message("¡Necesitas un pico de hierro para excavar esta roca!");target=null;return}
+ gatherProgress=0;
+ gatherInterval=setInterval(()=>{
+  if(!keys.e||!target||!target.alive){stopGather();return}
+  if(Math.hypot(player.x-target.x,player.y-target.y)>60){
+   stopGather();message("Te has alejado demasiado.");return;
+  }
+  const tool=getTool();
+  let speed=0.6;
+  if(tool){
+   if(tool.kind==="axe"&&target.type==="tree")speed=3;
+   else if(tool.kind==="pick"&&(target.type==="rock"||(target.type==="ironOre"&&tool.name==="Pico de hierro")))speed=3;
+   else speed=0.8;
+  }
+  if(dangerMode)speed*=1.25;
+  gatherProgress+=speed;
+  if(gatherProgress>=100){
+   target.alive=false;
+   if(target.type==="tree"){wood+=2;message("¡Has conseguido 2 maderas!")}
+   else if(target.type==="ironOre"){iron+=1;message("¡Has conseguido 1 lingote de hierro!")}
+   else{stone+=1;message("¡Has conseguido 1 piedra!")}
+   damageTool();updateHUD();stopGather();
+  }
+ },50);
+}
+function stopGather(){
+ if(mpConnected&&!mpIsHost){try{mpMatch.send({type:"remote-mine",active:false},{reliable:true});}catch(_){}return;}
+ clearInterval(gatherInterval);gatherInterval=null;
+ target=null;gatherProgress=0;
+}
+
+function findAnimalAt(x,y){
+ return animals.find(a=>Math.hypot(a.x-x,a.y-y)<38)||null;
+}
+function canvasPosition(e){
+ const rect=canvas.getBoundingClientRect();
+ return {
+  x:(e.clientX-rect.left)*canvas.width/rect.width,
+  y:(e.clientY-rect.top)*canvas.height/rect.height
+ };
+}
+
+function startAttack(e){
+ if(dead||build)return;
+ if(arenaMode){arenaAttack();return;}
+ const pos=canvasPosition(e);
+ const zombie=zombies.find(z=>Math.hypot(z.x-pos.x,z.y-pos.y)<30);
+ if(zombie){
+  const item=currentItem();const reach=item&&item.kind==="sword"?88:58;
+  if(Math.hypot(player.x-zombie.x,player.y-zombie.y)<=reach)hitZombie(zombie);
+
+  return;
+ }
+ const animal=findAnimalAt(pos.x,pos.y);
+ if(animal)startHunt(animal,"ratón");
+}
+function shootArrow(){
+ if(dead)return;
+ const bow=currentItem();
+ if(!bow||bow.kind!=="bow"){message("Selecciona el arco para disparar.");return;}
+ if(arrows<=0){message("No tienes flechas.");return;}
+ let target=null,dist=arenaMode?420:360;
+ if(arenaMode){if(arenaBoss&&arenaBoss.hp>0){target=arenaBoss;dist=Math.hypot(player.x-target.x,player.y-target.y);}}
+ else zombies.forEach(z=>{const d=Math.hypot(player.x-z.x,player.y-z.y);if(d<dist){dist=d;target=z;}});
+ if(!target){message("No hay ningún zombi a tu alcance.");return;}
+ arrows--;projectiles.push({x:player.x,y:player.y,target,damage:arenaMode?30:20,arena:arenaMode,speed:7});
+ updateHUD();updateInventory();
+}
+function updateProjectiles(dt){
+ projectiles=projectiles.filter(a=>{
+  const t=a.target;
+  if(!t||(a.arena?(gameWon||t.hp<=0):!zombies.includes(t)))return false;
+  const dx=t.x-a.x,dy=t.y-a.y,d=Math.hypot(dx,dy)||1,step=a.speed*(dt/16.67);
+  if(d<=step+15){t.hp=Math.max(0,t.hp-a.damage);if(a.arena&&t.hp===0)message("¡Has derrotado al zombi gigante! Ahora rompe el spawner con el pico de hierro.");else if(!a.arena&&t.hp===0){zombies.splice(zombies.indexOf(t),1);rottenFlesh++;if(t.ironDrop){iron++;message("¡Has conseguido un lingote de hierro y carne podrida!");}else message("¡Has conseguido 1 de carne podrida!");updateInventory();}updateHUD();return false;}
+  a.x+=dx/d*step;a.y+=dy/d*step;return true;
+ });
+}
+
+
+function updateEnemyArrows(dt){
+ enemyArrows=enemyArrows.filter(a=>{
+  a.x+=a.vx*(dt/16.67);a.y+=a.vy*(dt/16.67);a.life-=dt;
+  const localHit=Math.hypot(a.x-player.x,a.y-player.y)<17;
+  const remoteHit=mpConnected&&remotePlayer&&Math.hypot(a.x-remotePlayer.x,a.y-remotePlayer.y)<17;
+  if(localHit||remoteHit){
+   const damage=(armor.chest||armor.legs)?1:2;
+   if(remoteHit&&!localHit&&mpIsHost){withRemoteInventory(()=>{const remoteDamage=(armor.chest||armor.legs)?1:2;takeDamage(remoteDamage);if(health<=0)dead=true;});sendRemoteInventory();}
+   else{health=Math.max(0,health-damage);updateHUD();if(health<=0)showDeath();}
+   return false;
+  }
+  return a.life>0&&a.x>0&&a.x<810&&a.y>0&&a.y<500;
+ });
+}
+function archerShoot(z){
+ const useRemote=mpConnected&&remotePlayer&&Math.hypot(remotePlayer.x-z.x,remotePlayer.y-z.y)<Math.hypot(player.x-z.x,player.y-z.y);
+ const target=useRemote?remotePlayer:player;
+ const dx=target.x-z.x,dy=target.y-z.y,d=Math.hypot(dx,dy)||1;
+ const speed=4.2;
+ enemyArrows.push({x:z.x+20,y:z.y,vx:dx/d*speed,vy:dy/d*speed,life:2600});
+}
+
+function nearestZombie(maxDistance=60){
+ let found=null,dist=maxDistance;
+ zombies.forEach(z=>{const d=Math.hypot(player.x-z.x,player.y-z.y);if(d<dist){dist=d;found=z;}});
+ return found;
+}
+function hitZombie(z){
+ if(dead||!z||!zombies.includes(z))return;
+ const item=currentItem();
+ const reach=item&&item.kind==="sword"?88:58;
+ if(Math.hypot(player.x-z.x,player.y-z.y)>reach)return;
+ const damage=item&&item.type==="tool"&&item.kind==="sword"?(item.name==="Espada de piedra"?25:15):5;
+ z.hp=Math.max(0,z.hp-damage);
+ if(item&&item.type==="tool")damageTool();
+ if(z.hp<=0){zombies.splice(zombies.indexOf(z),1);rottenFlesh++;if(z.ironDrop){iron++;updateHUD();updateInventory();message("¡Has conseguido un lingote de hierro y carne podrida!");}else{message("¡Has conseguido 1 de carne podrida!");}updateInventory();}
+ updateHUD();
+}
+function startZombieAttackLoop(){
+ if(zombieAttackInterval)return;
+ zombieAttackInterval=setInterval(()=>{
+  if(arenaMode){if(!keys.h||gameWon){stopZombieAttackLoop();return;}arenaAttack();return;}
+  if(!keys.h){stopZombieAttackLoop();return;}
+  const item=currentItem();const z=nearestZombie(item&&item.kind==="sword"?88:58);
+  if(z)hitZombie(z);
+ },650);
+}
+function stopZombieAttackLoop(){clearInterval(zombieAttackInterval);zombieAttackInterval=null;}
+
+function startHuntWithKey(){
+ if(dead||build)return;
+ const selectedItem=currentItem();
+ const nearbyZombie=nearestZombie(selectedItem&&selectedItem.kind==="sword"?88:58);
+ if(nearbyZombie){hitZombie(nearbyZombie);return;}
+ const item=currentItem();
+ if(!item||item.type!=="tool"||item.kind!=="sword"){
+  message("Selecciona una espada para cazar.");return;
+ }
+ let animal=null,dist=65;
+ animals.forEach(a=>{
+  const d=Math.hypot(player.x-a.x,player.y-a.y);
+  if(d<dist){dist=d;animal=a}
+ });
+ if(!animal){message("Acércate a un animal para cazarlo.");return}
+ startHunt(animal,"tecla H");
+}
+function startHunt(animal,method){
+ if(build)return;
+ const item=currentItem();
+ if(!item||item.type!=="tool"||item.kind!=="sword"){
+  message("Selecciona una espada para cazar.");return;
+ }
+ if(Math.hypot(player.x-animal.x,player.y-animal.y)>65){
+  message("Acércate más al animal para cazarlo.");return;
+ }
+ stopGather();stopAttack();
+ attackTarget=animal;attackProgress=0;
+ if(method==="ratón")mouseDown=true;
+ message(method==="ratón"?"¡Sigue manteniendo pulsado para cazar!":"¡Mantén H pulsada para cazar!");
+ attackInterval=setInterval(()=>{
+  if(!(mouseDown||keys.h)||!attackTarget){stopAttack();return}
+  if(!animals.includes(attackTarget)){stopAttack();return}
+  if(Math.hypot(player.x-attackTarget.x,player.y-attackTarget.y)>70){
+   stopAttack();message("Te has alejado demasiado del animal.");return;
+  }
+  if(!getTool()||getTool().kind!=="sword"){
+   stopAttack();message("Necesitas una espada.");return;
+  }
+  const huntSpeed=item.name==="Espada de piedra"?3.5:2.5;
+  attackProgress+=huntSpeed;
+  if(attackProgress>=100){
+   const index=animals.indexOf(attackTarget);
+   if(index>=0){
+    const huntedKind=attackTarget.kind;
+    animals.splice(index,1);food++;
+    if(huntedKind==="sheep"){
+     wool++;
+     message("¡Has conseguido carne y un bloque de lana!");
+    }else{
+     let leatherFound=1;
+     if(dangerMode){
+      const roll=Math.random();
+      if(roll<0.22)leatherFound=3;
+      else if(roll<0.78)leatherFound=2;
+     }else if(Math.random()<0.5)leatherFound=2;
+     leather+=leatherFound;
+     message("¡Has conseguido carne y "+leatherFound+" de cuero!");
+    }
+    damageTool();updateInventory();
+   }
+   stopAttack();
+  }
+ },50);
+}
+function stopAttack(){
+ clearInterval(attackInterval);
+ attackInterval=null;attackTarget=null;
+ attackProgress=0;mouseDown=false;
+}
+
+canvas.addEventListener("mousedown",e=>{
+ if(e.button!==0)return;
+ const pos=canvasPosition(e);
+ if(build){placeBlock(pos.x,pos.y);return}
+ startAttack(e);
+});
+window.addEventListener("mouseup",()=>{
+ if(mouseDown){
+  stopAttack();
+  message("Has dejado de cazar.");
+ }
+});
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+
+function damageTool(){
+ let t=getTool();
+ if(t){
+  if(t.name==="Pico de hierro")return;
+  t.durability--;
+  if(t.durability<=0){
+   hotbar[selected]=null;
+   message("¡Tu herramienta se ha roto!");
+  }
+ }
+ updateHUD();
+}
+
+function craft(type){
+ if(dead)return;
+ if(mpConnected&&!mpIsHost){mpMatch.send({type:"remote-craft",recipe:type},{reliable:true});return;}
+ const recipes={
+  sticks:{w:2,s:0,p:0,l:0,name:"Palos"},
+  woolThread:{w:0,s:0,p:0,l:1,name:"Hilo de lana",special:"thread"},
+  bow:{w:0,s:0,p:2,l:0,t:3,name:"Arco",icon:"🏹",kind:"bow",durability:999},
+  arrow:{w:0,s:1,p:1,l:0,name:"Flechas",special:"arrow"},
+  spawnerPotion:{w:0,s:0,p:0,l:0,i:6,r:5,name:"Poción del spawner de zombi",icon:"🧪",special:"potion"},
+  bed:{w:3,s:0,p:0,l:3,c:0,name:"Cama",icon:"🛏️"},
+  leatherHelmet:{w:0,s:0,p:0,l:0,c:3,name:"Casco de cuero",armorPart:"helmet"},
+  leatherChest:{w:0,s:0,p:0,l:0,c:8,name:"Peto de cuero",armorPart:"chest"},
+  leatherLegs:{w:0,s:0,p:0,l:0,c:5,name:"Pantalones de cuero",armorPart:"legs"},
+  leatherBoots:{w:0,s:0,p:0,l:0,c:4,name:"Botas de cuero",armorPart:"boots"},
+  woodSword:{w:2,s:0,p:1,name:"Espada de madera",icon:"🗡️",kind:"sword",durability:15},
+  woodAxe:{w:2,s:0,p:2,name:"Hacha de madera",icon:"🪓",kind:"axe",durability:15},
+  woodPick:{w:3,s:0,p:2,name:"Pico de madera",icon:"⛏️",kind:"pick",durability:15},
+  stoneSword:{w:0,s:2,p:1,name:"Espada de piedra",icon:"⚔️",kind:"sword",durability:40},
+  stoneAxe:{w:0,s:2,p:2,name:"Hacha de piedra",icon:"🪓",kind:"axe",durability:40},
+  stonePick:{w:0,s:3,p:2,name:"Pico de piedra",icon:"⛏️",kind:"pick",durability:40},
+  ironPick:{w:0,s:0,p:2,i:2,name:"Pico de hierro",icon:"⛏️",kind:"pick",durability:70},
+  woodBlock:{w:4,s:0,p:0,name:"Bloque de madera"},
+  stoneBlock:{w:0,s:4,p:0,name:"Bloque de piedra"}
+ };
+ const r=recipes[type];
+ if(!r||wood<r.w||stone<r.s||sticks<r.p||iron<(r.i||0)||rottenFlesh<(r.r||0)||wool<(r.l||0)||threads<(r.t||0)||leather<(r.c||0)){
+  message("No tienes suficientes materiales.");return;
+ }
+ wood-=r.w;stone-=r.s;sticks-=r.p;iron-=(r.i||0);rottenFlesh-=(r.r||0);wool-=(r.l||0);threads-=(r.t||0);leather-=(r.c||0);
+ if(type==="sticks")sticks+=4;
+ else if(r.special==="thread")threads+=2;
+ else if(r.special==="arrow")arrows++;
+ else if(type==="woodBlock"){
+  woodBlocks++;
+  addBlockToBar("woodBlock","🟫","Bloque de madera");
+ }
+ else if(type==="stoneBlock"){
+  stoneBlocks++;
+  addBlockToBar("stoneBlock","⬜","Bloque de piedra");
+ }
+ else if(type==="bed")addToBar({name:"Cama",icon:"🛏️",type:"bed"});
+ else if(r.special==="potion")addToBar({name:r.name,icon:"🧪",type:"potion"});
+ else if(r.armorPart){
+  armor[r.armorPart]=true;
+  message("¡Te has equipado "+r.name+"!");
+ }
+ else addToBar({
+  name:r.name,icon:r.icon,type:"tool",
+  kind:r.kind,durability:r.durability
+ });
+ updateHUD();updateInventory();
+ message(type==="arrow"?"¡Has creado 1 flecha!":"¡Has creado "+r.name+"!");
+}
+
+function buildMode(){
+ if(dead)return;
+ build=!build;
+ message(build?"Selecciona una cama o un bloque y haz clic en el mapa para colocarlo.":"Modo construcción desactivado.");
+}
+function placeBlock(x,y){
+ if(dead)return;
+ if(mpConnected&&!mpIsHost){const it=currentItem();mpMatch.send({type:"remote-place",x,y,itemType:it?.type==="block"?it.blockType:it?.type||null},{reliable:true});return;}
+ const selectedItem=currentItem();
+ if(selectedItem&&selectedItem.type==="bed"){
+  if(Math.hypot(x-player.x,y-player.y)<35){
+   message("No puedes colocar la cama encima de ti.");return;
+  }
+  const bx=Math.round((x-16)/32)*32+16;
+  const by=Math.round((y-16)/32)*32+16;
+  if(blocks.some(b=>b.placed&&Math.hypot(b.x-bx,b.y-by)<25)||animals.some(a=>Math.hypot(a.x-bx,a.y-by)<30)){
+   message("Ese sitio está ocupado.");return;
+  }
+  blocks.push({x:bx,y:by,type:"bed",placed:true,alive:true});
+  hotbar[selected]=null;updateHUD();updateInventory();
+  message("¡Cama colocada! Acércate a ella por la noche y pulsa E.");
+  return;
+ }
+ if(Math.hypot(x-player.x,y-player.y)<30){
+  message("No puedes construir encima de ti.");return;
+ }
+ if(animals.some(a=>Math.hypot(x-a.x,y-a.y)<30)){
+  message("Hay un animal en ese sitio.");return;
+ }
+ const bx=Math.round((x-16)/32)*32+16;
+ const by=Math.round((y-16)/32)*32+16;
+ if(blocks.some(b=>b.placed&&Math.hypot(b.x-bx,b.y-by)<20)){
+  message("Ya hay un bloque en ese sitio.");return;
+ }
+ const item=currentItem();
+ if(!item||item.type!=="block"||item.quantity<=0){
+  message("Selecciona un bloque en la barra rápida antes de construir.");return;
+ }
+ const type=item.blockType;
+ blocks.push({x:bx,y:by,type,placed:true,alive:true});
+ item.quantity--;
+ if(type==="woodBlock")woodBlocks--;else stoneBlocks--;
+ if(item.quantity<=0)hotbar[selected]=null;
+ message("¡Bloque colocado!");
+ updateHUD();updateInventory();
+}
+
+function eatFood(){
+ if(dead)return;
+ if(mpConnected&&!mpIsHost){mpMatch.send({type:"remote-eat"},{reliable:true});return;}
+ if(food<=0){message("No tienes comida.");return}
+ if(hunger>=10){message("No tienes hambre.");return}
+ food--;hunger=Math.min(10,hunger+3);
+ regenHearts=Math.min(10-health,regenHearts+3);regenTimer=0;
+ updateHUD();updateInventory();message("¡Has comido! Recuperarás vida poco a poco.");
+}
+function toggleInventory(){
+ if(dead)return;
+ const el=document.getElementById("inventory");
+ el.style.display=el.style.display==="block"?"none":"block";
+ updateInventory();
+}
+function updateInventory(){
+ document.getElementById("inventoryItems").innerHTML=
+ `<p>🪵 Madera: ${wood} | 🪨 Piedra: ${stone} | Hierro: ${iron} | 🪵 Palos: ${sticks}</p>
+ <p>🍗 Comida: ${food} | 🧶 Lana: ${wool} | Hilo: ${threads} | ➡️ Flechas: ${arrows} | 🟤 Cuero: ${leather} | 🧟 Carne podrida: ${rottenFlesh}</p>
+ <p>🟫 Bloques de madera: ${woodBlocks} | ⬜ Bloques de piedra: ${stoneBlocks}</p>
+ <p>Herramientas: ${
+ hotbar.filter(x=>x&&x.type==="tool")
+ .map(x=>x.name+" ("+x.durability+" usos)").join(", ")||"Ninguna"
+ }</p>`;
+}
+function toggleCrafting(){
+ if(dead)return;
+ const el=document.getElementById("crafting");
+ el.style.display=el.style.display==="block"?"none":"block";
+}
+function openInstructions(){
+ document.getElementById("helpOverlay").style.display="flex";
+}
+function closeInstructions(){
+ document.getElementById("helpOverlay").style.display="none";
+}
+function closeInstructionsOutside(e){
+ if(e.target.id==="helpOverlay")closeInstructions();
+}
+
+function takeDamage(amount){
+ if(dead)return;
+ // La armadura de cuero protege según la pieza: el peto es el más resistente.
+ const protection=(armor.chest?0.30:0)+(armor.legs?0.20:0)+(armor.helmet?0.10:0)+(armor.boots?0.10:0);
+ damageRemainder+=amount*(1-Math.min(0.70,protection));
+ const wholeDamage=Math.floor(damageRemainder);
+ if(wholeDamage>0){
+  health=Math.max(0,health-wholeDamage);
+  damageRemainder-=wholeDamage;
+ }
+}
+
+setInterval(()=>{
+ if(!gameStarted||dead)return;
+ if(hunger>0)hunger--;
+ else takeDamage(1);
+ if(health===0)showDeath();
+ updateHUD();
+},60000);
+
+updateHUD();
+
+// --- MULTIJUGADOR ONLINE (Cloudflare Durable Objects + WebSocket) ---
+// Sincroniza posiciones, entrada de movimiento del invitado, mundo y daño remoto básico.
+// Algunas acciones e inventarios todavía no están completamente separados por jugador.
+let remotePlayer=null, mpConnected=false, mpIsHost=false, mpRoomCode="";
+let remoteKeys={}, remoteActionCooldown=0, mpLastSnapshot=0, mpLastInput=0;
+let remoteHealth=10, remoteHunger=8;
+let remoteInventory=null, remoteGatherTarget=null, remoteGatherProgress=0, remoteDead=false;
+const inventoryFields=["health","hunger","wood","stone","sticks","food","wool","leather","iron","rottenFlesh","arrows","threads","woodBlocks","stoneBlocks","armor","damageRemainder","regenHearts","regenTimer","hotbar","selected"];
+function captureInventory(){
+ return JSON.parse(JSON.stringify({health,hunger,wood,stone,sticks,food,wool,leather,iron,rottenFlesh,arrows,threads,woodBlocks,stoneBlocks,armor,damageRemainder,regenHearts,regenTimer,hotbar,selected,dead}));
+}
+function applyInventory(o){
+ if(!o)return; for(const k of inventoryFields)if(o[k]!==undefined){
+  // Las variables del juego son léxicas; se asignan explícitamente abajo.
+  switch(k){case "health":health=o[k];break;case "hunger":hunger=o[k];break;case "wood":wood=o[k];break;case "stone":stone=o[k];break;case "sticks":sticks=o[k];break;case "food":food=o[k];break;case "wool":wool=o[k];break;case "leather":leather=o[k];break;case "iron":iron=o[k];break;case "rottenFlesh":rottenFlesh=o[k];break;case "arrows":arrows=o[k];break;case "threads":threads=o[k];break;case "woodBlocks":woodBlocks=o[k];break;case "stoneBlocks":stoneBlocks=o[k];break;case "armor":armor=o[k];break;case "damageRemainder":damageRemainder=o[k];break;case "regenHearts":regenHearts=o[k];break;case "regenTimer":regenTimer=o[k];break;case "hotbar":hotbar=o[k];break;case "selected":selected=o[k];break;case "dead":dead=!!o[k];break;}
+ }
+}
+function withRemoteInventory(fn){
+ const local=captureInventory(), localPlayer=player, localDead=dead;
+ if(!remoteInventory)remoteInventory=JSON.parse(JSON.stringify(local));
+ applyInventory(remoteInventory); player=remotePlayer;
+ try{fn(); remoteInventory=captureInventory();remoteDead=!!remoteInventory.dead;}
+ finally{applyInventory(local);player=localPlayer;dead=localDead;updateHUD();}
+}
+function sendRemoteInventory(){if(mpConnected&&mpIsHost&&remoteInventory)mpMatch.send({type:"remote-inventory",inventory:remoteInventory},{reliable:true});}
+
+const MP_SERVER="https://survival-world-rooms.student-alex-gm.workers.dev";
+const mpStatusEl=document.getElementById("mpStatus");
+let mpLobbyConnected=false, mpPlayersCount=0, mpGuestReady=false, mpHostReady=false;
+let mpSocket=null, mpRole="", mpStarted=false;
+// Adaptador compatible con el resto del juego: transporta sus mensajes por WebSocket.
+const mpMatch=new EventTarget();
+mpMatch.send=(data,options={})=>{
+ if(!mpSocket || mpSocket.readyState!==WebSocket.OPEN) throw new Error("La sala no está conectada");
+ mpSocket.send(JSON.stringify({type:"relay",data}));
+};
+function mpStatus(t){mpStatusEl.textContent=t;}
+function mpUpdateRoomPlayers(){
+ const count=Math.max(0,Math.min(2,mpPlayersCount));
+ const label=document.getElementById("mpPlayerCount");
+ if(label)label.textContent="Jugadores conectados: "+count+"/2";
+ const start=document.getElementById("mpStartButton");
+ if(start)start.disabled=!(mpIsHost&&count>=2&&mpGuestReady&&!mpStarted);
+}
+function mpShowRoom(){
+ document.getElementById("mpRoom").style.display="block";
+ document.getElementById("mpRoomCode").textContent=mpRoomCode;
+ document.getElementById("mpHostControls").style.display=mpIsHost?"block":"none";
+ document.getElementById("mpGuestControls").style.display=mpIsHost?"none":"block";
+ mpUpdateRoomPlayers();
+}
+function mpOpenGame(){
+ if(mpStarted)return; mpStarted=true;
+ mpMatch.dispatchEvent(new Event("game-peer-connection-open"));
+}
+function mpConnectSocket(code,role){
+ return new Promise((resolve,reject)=>{
+  const wsUrl=MP_SERVER.replace(/^https:/,"wss:").replace(/^http:/,"ws:")+"/ws/"+encodeURIComponent(code)+"?role="+role;
+  const ws=new WebSocket(wsUrl); mpSocket=ws; mpRole=role;
+  let settled=false;
+  const timer=setTimeout(()=>{if(!settled){settled=true;try{ws.close();}catch{}reject(new Error("tiempo de espera agotado al conectar con la sala"));}},12000);
+  ws.addEventListener("open",()=>{mpLobbyConnected=true;});
+  ws.addEventListener("message",ev=>{
+   let msg;try{msg=JSON.parse(ev.data);}catch{return;}
+   if(msg.type==="welcome"){
+    if(!settled){settled=true;clearTimeout(timer);resolve();}
+    if(role==="guest"){mpPlayersCount=2;mpShowRoom();mpStatus("Te has unido. Pulsa «¡Estoy listo!» cuando quieras.");}
+    else{mpPlayersCount=1;mpShowRoom();mpStatus("Sala creada. Comparte el código con el otro jugador.");}
+    return;
+   }
+   if(msg.type==="peer-joined"){
+    mpPlayersCount=2;mpShowRoom();mpStatus("¡Se ha unido otro jugador! Esperando a que pulse «¡Estoy listo!».");return;
+   }
+   if(msg.type==="ready"){
+    mpGuestReady=true;mpUpdateRoomPlayers();mpStatus("El invitado está listo. Ya puedes empezar la partida.");return;
+   }
+   if(msg.type==="start"){
+    mpStatus("¡El creador ha empezado la partida!");mpOpenGame();return;
+   }
+   if(msg.type==="relay"){
+    // El código del juego consume e.data, como hacía HTMLGameKit.
+    const event=new Event("game-peer-connection-message");event.data=msg.data;mpMatch.dispatchEvent(event);
+    return;
+   }
+   if(msg.type==="peer-left"){
+    mpPlayersCount=1;mpGuestReady=false;mpUpdateRoomPlayers();mpStatus("El otro jugador se ha desconectado.");
+    mpMatch.dispatchEvent(new Event("game-peer-connection-close"));return;
+   }
+   if(msg.type==="error")mpStatus(msg.message||"Error en la sala");
+  });
+  ws.addEventListener("error",()=>{if(!settled){settled=true;clearTimeout(timer);reject(new Error("no se pudo abrir la conexión WebSocket"));}});
+  ws.addEventListener("close",ev=>{
+   if(!settled){settled=true;clearTimeout(timer);reject(new Error("conexión cerrada ("+ev.code+")"));}
+   if(mpStarted){mpConnected=false;mpMatch.dispatchEvent(new Event("game-peer-connection-close"));}
+  });
+ });
+}
+async function mpCreate(){
+ mpStatus("Creando una sala en Cloudflare…");
+ try{
+  mpIsHost=true;mpStarted=false;mpGuestReady=false;mpHostReady=false;mpPlayersCount=0;
+  const response=await fetch(MP_SERVER+"/api/create",{method:"POST"});
+  const result=await response.json();
+  if(!response.ok||!result.code)throw new Error(result.error||"no se pudo crear el código");
+  mpRoomCode=result.code;
+  await mpConnectSocket(mpRoomCode,"host");
+ }catch(e){mpStatus("No se pudo crear la sala: "+e.message);}
+}
+async function mpJoin(){
+ const code=document.getElementById("mpCodeInput").value.trim().toUpperCase();
+ if(!/^[A-Z0-9]{6}$/.test(code)){mpStatus("Escribe un código válido de 6 caracteres.");return;}
+ mpStatus("Conectando con la sala…");
+ try{
+  mpIsHost=false;mpStarted=false;mpGuestReady=false;mpHostReady=false;mpPlayersCount=0;mpRoomCode=code;
+  await mpConnectSocket(code,"guest");
+ }catch(e){mpStatus("No se pudo entrar: "+e.message);}
+}
+function mpReady(){
+ if(!mpRoomCode||!mpSocket||mpSocket.readyState!==WebSocket.OPEN){mpStatus("Primero entra en una sala.");return;}
+ try{mpSocket.send(JSON.stringify({type:"control-ready"}));mpGuestReady=true;document.getElementById("mpReady").disabled=true;mpStatus("¡Has avisado de que estás listo! Esperando al creador…");}
+ catch(e){mpStatus("No se pudo enviar la confirmación: "+e.message);}
+}
+function mpHostStart(){
+ if(!mpIsHost||mpPlayersCount<2||!mpGuestReady){mpStatus("Espera a que el otro jugador entre y pulse «¡Estoy listo!».");return;}
+ try{mpSocket.send(JSON.stringify({type:"control-start"}));mpHostReady=true;mpStatus("¡Partida iniciada!");mpOpenGame();}
+ catch(e){mpStatus("No se pudo iniciar la partida: "+e.message);}
+}
+function mpSolo(){
+ if(mpSocket){try{mpSocket.close();}catch{}}
+ gameStarted=true;lastTime=performance.now();
+ document.getElementById("mpOverlay").style.display="none";
+ document.getElementById("mpBar").style.display="none";
+}
+function mpDiagnoseServer(){
+ const button=document.querySelector('#mpCard button[onclick="mpDiagnoseServer()"]');if(button)button.disabled=true;
+ mpStatus("Comprobando el servidor…");
+ fetch(MP_SERVER+"/api/health").then(r=>r.json()).then(d=>mpStatus(d.ok?"Servidor conectado correctamente. Ya puedes crear una sala.":"El servidor respondió, pero no como esperábamos."))
+ .catch(e=>mpStatus("No se pudo contactar con el servidor: "+e.message)).finally(()=>{if(button)button.disabled=false;});
+}
+mpMatch.addEventListener("game-peer-connection-open",()=>{
+ gameStarted=true;lastTime=performance.now();
+ mpConnected=true;
+ if(mpIsHost&&!remoteInventory)remoteInventory={health:10,hunger:8,wood:0,stone:0,sticks:0,food:0,wool:0,leather:0,iron:0,rottenFlesh:0,arrows:0,threads:0,woodBlocks:0,stoneBlocks:0,armor:{helmet:false,chest:false,legs:false,boots:false},damageRemainder:0,regenHearts:0,regenTimer:0,dead:false,hotbar:[{name:"Manos",icon:"✊",type:"hands"},{name:"Comida",icon:"🍗",type:"food"},null,null,null,null,null,null],selected:0};
+ document.getElementById("mpOverlay").style.display="none";
+ document.getElementById("mpBar").style.display="block";
+ document.getElementById("mpConnection").textContent="conectado (mundo compartido)";
+});
+mpMatch.addEventListener("game-peer-connection-close",e=>{
+ mpConnected=false;remotePlayer=null;
+ document.getElementById("mpConnection").textContent="desconectado";
+ mpStatus("Se ha cerrado la conexión ("+(e.reason||"desconocido")+"). Vuelve a crear o entrar en una sala.");
+});
+mpMatch.addEventListener("game-peer-connection-ice",e=>{
+ if(e.state==="no-servers") mpStatus("El servidor no ha proporcionado servidores ICE. La conexión puede no funcionar en algunas redes.");
+});
+mpMatch.addEventListener("game-peer-connection-message",e=>{
+ const d=e.data;
+ if(!d||typeof d!=="object")return;
+ if(d.type==="input"&&mpIsHost){
+  if(d.keys&&typeof d.keys==="object")remoteKeys=d.keys;
+  if(Number.isFinite(d.x)&&Number.isFinite(d.y)&&!remotePlayer)remotePlayer={x:d.x,y:d.y,speed:2.5};
+  if(remoteInventory&&Number.isFinite(d.selected))remoteInventory.selected=Math.max(0,Math.min(7,d.selected));
+  return;
+ }
+ if(d.type==="remote-mine"&&mpIsHost){remoteKeys.e=!!d.active;if(!d.active){remoteGatherTarget=null;remoteGatherProgress=0;}return;}
+ if(d.type==="remote-select"&&mpIsHost&&remoteInventory){remoteInventory.selected=Math.max(0,Math.min(7,Number(d.selected)||0));return;}
+ if(d.type==="remote-craft"&&mpIsHost&&remotePlayer&&typeof d.recipe==="string"){
+  withRemoteInventory(()=>craft(d.recipe));sendRemoteInventory();return;
+ }
+ if(d.type==="remote-place"&&mpIsHost&&remotePlayer&&Number.isFinite(d.x)&&Number.isFinite(d.y)){
+  withRemoteInventory(()=>{
+   if(d.itemType==="bed"){selected=hotbar.findIndex(v=>v&&v.type==="bed");}
+   else if(d.itemType==="woodBlock"||d.itemType==="stoneBlock"){selected=hotbar.findIndex(v=>v&&v.type==="block"&&v.blockType===d.itemType);}
+   if(selected>=0)placeBlock(d.x,d.y);
+  });sendRemoteInventory();return;
+ }
+ if(d.type==="remote-eat"&&mpIsHost&&remotePlayer){withRemoteInventory(()=>eatFood());sendRemoteInventory();return;}
+ if(d.type==="remote-inventory-request"&&mpIsHost){sendRemoteInventory();return;}
+
+ if(d.type==="remote-action"&&mpIsHost&&remotePlayer){
+  if(d.action==="attack"){
+   withRemoteInventory(()=>{
+    let target=null,dist=88;zombies.forEach(z=>{const q=Math.hypot(z.x-remotePlayer.x,z.y-remotePlayer.y);if(q<dist){dist=q;target=z;}});
+    if(target){const item=currentItem();const damage=item&&item.kind==="sword"?(item.name==="Espada de piedra"?25:15):5;target.hp=Math.max(0,target.hp-damage);if(target.hp<=0){zombies.splice(zombies.indexOf(target),1);rottenFlesh++;}damageTool();}
+   });sendRemoteInventory();
+  }
+  return;
+ }
+ if(d.type==="remote-damage"&&!mpIsHost){
+  const amount=Math.max(0,Math.min(5,Number(d.amount)||0));
+  health=Math.max(0,health-amount);updateHUD();if(health<=0)showDeath();return;
+ }
+ if(d.type==="remote-damage"&&mpIsHost&&remotePlayer){
+  const amount=Math.max(0,Math.min(5,Number(d.amount)||0));
+  withRemoteInventory(()=>{takeDamage(amount);if(health<=0)dead=true;});sendRemoteInventory();return;
+ }
+ if(d.type==="remote-inventory"&&!mpIsHost&&d.inventory){applyInventory(d.inventory);updateHUD();updateInventory();if(dead)showDeath();return;}
+
+ if(d.type==="player-position"&&Number.isFinite(d.x)&&Number.isFinite(d.y)){
+  remotePlayer={x:Math.max(12,Math.min(798,d.x)),y:Math.max(12,Math.min(488,d.y)),speed:2.5};
+ }
+ if(d.type==="world-state"&&!mpIsHost){
+  if(Number.isFinite(d.worldTime))worldTime=d.worldTime;
+  if(Array.isArray(d.blocks))blocks=d.blocks;
+  if(Array.isArray(d.animals))animals=d.animals;
+  if(Array.isArray(d.zombies))zombies=d.zombies;
+  if(Array.isArray(d.projectiles))projectiles=d.projectiles;
+  if(Array.isArray(d.enemyArrows))enemyArrows=d.enemyArrows;
+  if(d.remoteInventory)applyInventory(d.remoteInventory);
+  if(Number.isFinite(d.hostX)&&Number.isFinite(d.hostY))remotePlayer={x:d.hostX,y:d.hostY,speed:2.5};
+  secondNightSpawned=!!d.secondNightSpawned;
+  fourthNightSpawned=!!d.fourthNightSpawned;
+  seventhNightSpawned=!!d.seventhNightSpawned;
+  ironOreUnlocked=!!d.ironOreUnlocked;
+ }
+});
+setInterval(()=>{
+ if(!mpConnected||dead||arenaMode)return;
+ try{
+  // El invitado envía las teclas pulsadas; el anfitrión mueve su personaje remoto.
+  if(!mpIsHost){
+   mpMatch.send({type:"input",keys:{...keys},x:player.x,y:player.y,selected},{reliable:false});
+   mpMatch.send({type:"player-position",x:player.x,y:player.y},{reliable:false});
+  }else{
+   mpMatch.send({type:"player-position",x:player.x,y:player.y},{reliable:false});
+   mpMatch.send({type:"world-state",worldTime,blocks,animals,zombies,projectiles,enemyArrows,hostX:player.x,hostY:player.y,secondNightSpawned,fourthNightSpawned,seventhNightSpawned,ironOreUnlocked,remoteInventory},{reliable:false});
+  }
+ }catch(err){mpStatus("Se perdió la sincronización: "+(err.message||"error de conexión"));}
+},80);
+window.addEventListener("error",e=>{
+ if(e.message && /websocket|network|fetch/i.test(e.message)) mpStatus("Error de conexión multijugador: "+e.message);
+});
+window.addEventListener("unhandledrejection",e=>{
+ mpStatus("Error al iniciar el multijugador: "+(e.reason?.message||String(e.reason)));
+});
+setTimeout(()=>{
+ if(!mpLobbyConnected && !mpConnected){
+  mpStatus("Aún no se ha conectado ninguna sala. Puedes comprobar el servidor o volver a intentarlo.");
+ }
+},32000);
+</script>
+
+</body>
+</html>
